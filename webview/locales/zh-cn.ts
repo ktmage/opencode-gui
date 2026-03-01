@@ -18,7 +18,7 @@ export const zhCn: typeof en = {
   "input.remove": "移除",
   "input.placeholder": "向 OpenCode 提问...（输入 # 附加文件）",
   "input.addFile": (name: string) => `添加 ${name}`,
-  "input.openTerminal": "在终端中打开",
+  "input.openTerminal": "在终端中打开会话",
   "input.shellMode": "Shell 模式",
   "input.placeholder.shell": "输入 Shell 命令...",
   "input.settings": "设置",

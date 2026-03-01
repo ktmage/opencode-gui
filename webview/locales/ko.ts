@@ -18,7 +18,7 @@ export const ko: typeof en = {
   "input.remove": "제거",
   "input.placeholder": "OpenCode에 질문하기... (# 으로 파일 첨부)",
   "input.addFile": (name: string) => `${name} 추가`,
-  "input.openTerminal": "터미널에서 열기",
+  "input.openTerminal": "터미널에서 세션 열기",
   "input.shellMode": "셸 모드",
   "input.placeholder.shell": "셸 명령어 입력...",
   "input.settings": "설정",

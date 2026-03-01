@@ -18,7 +18,7 @@ export const zhTw: typeof en = {
   "input.remove": "移除",
   "input.placeholder": "向 OpenCode 提問...（輸入 # 附加檔案）",
   "input.addFile": (name: string) => `新增 ${name}`,
-  "input.openTerminal": "在終端機中開啟",
+  "input.openTerminal": "在終端機中開啟工作階段",
   "input.shellMode": "Shell 模式",
   "input.placeholder.shell": "輸入 Shell 命令...",
   "input.settings": "設定",

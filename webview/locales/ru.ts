@@ -18,7 +18,7 @@ export const ru: typeof en = {
   "input.remove": "Удалить",
   "input.placeholder": "Спросите OpenCode... (введите # для прикрепления файлов)",
   "input.addFile": (name: string) => `Добавить ${name}`,
-  "input.openTerminal": "Открыть в терминале",
+  "input.openTerminal": "Открыть сессию в терминале",
   "input.shellMode": "Режим Shell",
   "input.placeholder.shell": "Введите команду оболочки...",
   "input.settings": "Настройки",

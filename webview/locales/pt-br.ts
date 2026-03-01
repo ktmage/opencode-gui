@@ -18,7 +18,7 @@ export const ptBr: typeof en = {
   "input.remove": "Remover",
   "input.placeholder": "Pergunte ao OpenCode... (digite # para anexar arquivos)",
   "input.addFile": (name: string) => `Adicionar ${name}`,
-  "input.openTerminal": "Abrir no terminal",
+  "input.openTerminal": "Abrir sessão no terminal",
   "input.shellMode": "Modo Shell",
   "input.placeholder.shell": "Digite um comando shell...",
   "input.settings": "Configurações",
