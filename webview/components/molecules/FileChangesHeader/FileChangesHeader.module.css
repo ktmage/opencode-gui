@@ -58,6 +58,8 @@
 
 .list {
   padding: 0 8px 6px 12px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 /* --- File Item --- */
