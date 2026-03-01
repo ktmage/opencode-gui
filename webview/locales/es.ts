@@ -129,6 +129,11 @@ export const es: typeof en = {
   "childSession.agent": "Agente",
   "childSession.backToParent": "Volver a la sesión principal",
 
+  // Context menu sections
+  "input.section.files": "Archivos",
+  "input.section.agents": "Agentes",
+  "input.section.shell": "Modo Shell",
+
   // AgentMention
   "input.noAgents": "No hay agentes disponibles",
 };

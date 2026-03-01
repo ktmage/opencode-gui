@@ -129,6 +129,11 @@ export const ru: typeof en = {
   "childSession.agent": "Агент",
   "childSession.backToParent": "Вернуться к родительской сессии",
 
+  // Context menu sections
+  "input.section.files": "Файлы",
+  "input.section.agents": "Агенты",
+  "input.section.shell": "Режим Shell",
+
   // AgentMention
   "input.noAgents": "Нет доступных агентов",
 };

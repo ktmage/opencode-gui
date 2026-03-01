@@ -129,6 +129,11 @@ export const zhCn: typeof en = {
   "childSession.agent": "智能体",
   "childSession.backToParent": "返回父会话",
 
+  // Context menu sections
+  "input.section.files": "文件",
+  "input.section.agents": "智能体",
+  "input.section.shell": "Shell 模式",
+
   // AgentMention
   "input.noAgents": "没有可用的智能体",
 };

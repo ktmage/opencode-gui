@@ -129,6 +129,11 @@ export const ptBr: typeof en = {
   "childSession.agent": "Agente",
   "childSession.backToParent": "Voltar à sessão principal",
 
+  // Context menu sections
+  "input.section.files": "Arquivos",
+  "input.section.agents": "Agentes",
+  "input.section.shell": "Modo Shell",
+
   // AgentMention
   "input.noAgents": "Nenhum agente disponível",
 };

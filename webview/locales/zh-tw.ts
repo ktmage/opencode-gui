@@ -129,6 +129,11 @@ export const zhTw: typeof en = {
   "childSession.agent": "智慧代理",
   "childSession.backToParent": "返回上層工作階段",
 
+  // Context menu sections
+  "input.section.files": "檔案",
+  "input.section.agents": "智慧代理",
+  "input.section.shell": "Shell 模式",
+
   // AgentMention
   "input.noAgents": "沒有可用的智慧代理",
 };

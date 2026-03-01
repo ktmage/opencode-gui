@@ -129,6 +129,11 @@ export const ko: typeof en = {
   "childSession.agent": "에이전트",
   "childSession.backToParent": "상위 세션으로 돌아가기",
 
+  // Context menu sections
+  "input.section.files": "파일",
+  "input.section.agents": "에이전트",
+  "input.section.shell": "셸 모드",
+
   // AgentMention
   "input.noAgents": "사용 가능한 에이전트가 없습니다",
 };
