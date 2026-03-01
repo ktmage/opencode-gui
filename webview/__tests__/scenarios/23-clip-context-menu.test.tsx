@@ -48,6 +48,11 @@ async function setupWithFiles() {
       { fileName: "index.ts", filePath: "/src/index.ts" },
     ],
   });
+  // アクティブエディタを設定（quick-add ボタン表示用）
+  await sendExtMessage({
+    type: "activeEditor",
+    file: { fileName: "app.tsx", filePath: "/src/app.tsx" },
+  });
   vi.mocked(postMessage).mockClear();
 }
 
