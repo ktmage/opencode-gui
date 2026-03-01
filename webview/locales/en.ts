@@ -17,6 +17,8 @@ export const en = {
   "input.placeholder": "Ask OpenCode... (type # to attach files)",
   "input.addFile": (name: string) => `Add ${name}`,
   "input.openTerminal": "Open in terminal",
+  "input.shellMode": "Shell mode",
+  "input.placeholder.shell": "Enter shell command...",
   "input.settings": "Settings",
   "input.stop": "Stop",
   "input.send": "Send",
@@ -33,6 +35,11 @@ export const en = {
   // MessagesArea
   "checkpoint.revertTitle": "Revert to this point",
   "checkpoint.retryFromHere": "Retry from here",
+  "checkpoint.forkFromHere": "Fork from here",
+
+  // Undo/Redo
+  "header.undo": "Undo",
+  "header.redo": "Redo",
 
   // PermissionView
   "permission.allow": "Allow",
@@ -44,6 +51,12 @@ export const en = {
   "session.untitled": "Untitled",
   "session.delete": "Delete",
   "session.select": "Select session",
+
+  // Time (relative)
+  "time.now": "now",
+  "time.minutes": (n: number) => `${n}m`,
+  "time.hours": (n: number) => `${n}h`,
+  "time.days": (n: number) => `${n}d`,
 
   // ToolPartView - category labels
   "tool.read": "Read",
@@ -77,6 +90,9 @@ export const en = {
   "context.compressing": "Compressing...",
   "context.compress": "Compress Conversation",
 
+  // ShellResultView
+  "shell.title": "Shell",
+
   // ToolConfigPanel
   "config.title": "Settings",
   "config.projectConfig": "Project Config",
@@ -89,6 +105,24 @@ export const en = {
   "config.langAuto": "Auto (VS Code)",
   "config.langEn": "English",
   "config.langJa": "日本語",
+
+  // FileChangesHeader
+  "fileChanges.title": "File Changes",
+  "fileChanges.noChanges": "No file changes",
+  "fileChanges.openDiff": "Open in diff editor",
+  "fileChanges.toggle": "File changes",
+
+  // Share
+  "share.share": "Share session",
+  "share.unshare": "Unshare session",
+  "share.copied": "Share URL copied to clipboard",
+
+  // ChildSession
+  "childSession.agent": "Agent",
+  "childSession.backToParent": "Back to parent session",
+
+  // AgentMention
+  "input.noAgents": "No agents available",
 } as const;
 
 export type LocaleKeys = keyof typeof en;

@@ -1,102 +1,128 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import type { Session, Message, Part, Event, Permission, Provider } from "@opencode-ai/sdk";
-import type { ExtToWebviewMessage, FileAttachment, AllProvidersData } from "./vscode-api";
-import { postMessage, getPersistedState, setPersistedState } from "./vscode-api";
-import { ChatHeader } from "./components/ChatHeader";
-import { MessagesArea } from "./components/MessagesArea";
-import { InputArea } from "./components/InputArea";
-import { EmptyState } from "./components/EmptyState";
-import { SessionList } from "./components/SessionList";
-import { TodoHeader } from "./components/TodoHeader";
-import { parseTodos } from "./components/ToolPartView";
-import type { TodoItem } from "./components/ToolPartView";
-import { LocaleProvider, resolveLocale, getStrings } from "./locales";
-import type { LocaleSetting } from "./locales";
+import type { Agent, Event, Session, Todo } from "@opencode-ai/sdk";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { EmptyState } from "./components/molecules/EmptyState";
+import { FileChangesHeader } from "./components/molecules/FileChangesHeader";
+import { TodoHeader } from "./components/molecules/TodoHeader";
+import { ChatHeader } from "./components/organisms/ChatHeader";
+import { InputArea } from "./components/organisms/InputArea";
+import { MessagesArea } from "./components/organisms/MessagesArea";
+import { SessionList } from "./components/organisms/SessionList";
+import { AppContextProvider, type AppContextValue } from "./contexts/AppContext";
+import { useFileChanges } from "./hooks/useFileChanges";
+import { useLocale } from "./hooks/useLocale";
+import { useMessages } from "./hooks/useMessages";
+import { usePermissions } from "./hooks/usePermissions";
+import { useProviders } from "./hooks/useProviders";
+import { useSession } from "./hooks/useSession";
+import { LocaleProvider } from "./locales";
+import type { ExtToWebviewMessage, FileAttachment } from "./vscode-api";
+import { postMessage } from "./vscode-api";
 
-export type MessageWithParts = { info: Message; parts: Part[] };
+// re-export for consumers that import from App.tsx
+export type { MessageWithParts } from "./hooks/useMessages";
 
 export function App() {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [activeSession, setActiveSession] = useState<Session | null>(null);
-  const [messages, setMessages] = useState<MessageWithParts[]>([]);
-  const [showSessionList, setShowSessionList] = useState(false);
-  const [sessionBusy, setSessionBusy] = useState(false);
-  // パーミッションリクエストを messageID でグルーピングして管理する
-  const [permissions, setPermissions] = useState<Map<string, Permission>>(new Map());
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [allProvidersData, setAllProvidersData] = useState<AllProvidersData | null>(null);
-  const [selectedModel, setSelectedModel] = useState<{ providerID: string; modelID: string } | null>(null);
+  const session = useSession();
+  const msg = useMessages();
+  const prov = useProviders();
+  const perm = usePermissions();
+  const locale = useLocale();
+  const fileChanges = useFileChanges();
+
+  // Extension Host → Webview メッセージでのみ更新される単純なステート
   const [openEditors, setOpenEditors] = useState<FileAttachment[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<FileAttachment[]>([]);
-  // チェックポイントからの復元時にテキストを入力欄にプリフィルするためのステート
-  const [prefillText, setPrefillText] = useState("");
-  // 設定パネル用のステート
-  const [openCodePaths, setOpenCodePaths] = useState<{ home: string; config: string; state: string; directory: string } | null>(null);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [childSessions, setChildSessions] = useState<Session[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [openCodePaths, setOpenCodePaths] = useState<{
+    home: string;
+    config: string;
+    state: string;
+    directory: string;
+  } | null>(null);
+  // handleEvent 内で activeSession を参照するために ref で追跡する。
+  // これにより handleEvent の依存配列から session.activeSession（オブジェクト参照）を除外でき、
+  // session.updated イベントのたびに useEffect が再登録される問題を防ぐ。
+  const activeSessionRef = useRef(session.activeSession);
+  activeSessionRef.current = session.activeSession;
 
-  // ロケール管理
-  const [localeSetting, setLocaleSetting] = useState<LocaleSetting>(
-    () => (getPersistedState()?.localeSetting as LocaleSetting) ?? "auto",
-  );
-  const [vscodeLanguage, setVscodeLanguage] = useState("en");
-  const resolvedLocale = useMemo(() => resolveLocale(localeSetting, vscodeLanguage), [localeSetting, vscodeLanguage]);
-  const strings = useMemo(() => getStrings(resolvedLocale), [resolvedLocale]);
-
-  const handleLocaleSettingChange = useCallback((setting: LocaleSetting) => {
-    setLocaleSetting(setting);
-    setPersistedState({ ...getPersistedState(), localeSetting: setting });
+  const handleOpenConfigFile = useCallback((filePath: string) => {
+    postMessage({ type: "openConfigFile", filePath });
   }, []);
 
-  // messages から StepFinishPart のトークン使用量を導出する（圧縮でメッセージが減ると自動的に反映される）
-  const inputTokens = useMemo(() => {
-    let total = 0;
-    for (const m of messages) {
-      for (const p of m.parts) {
-        if (p.type === "step-finish" && p.tokens) {
-          total += p.tokens.input;
-        }
+  const handleOpenTerminal = useCallback(() => {
+    postMessage({ type: "openTerminal" });
+  }, []);
+
+  // SSE event handler — dispatches to domain-specific hooks
+  // activeSessionRef を使うことで session.activeSession（オブジェクト参照）への依存を排除し、
+  // handleEvent を安定した参照に保つ。これにより useEffect の不要な再登録を防ぐ。
+  const handleEvent = useCallback(
+    (event: Event) => {
+      session.handleSessionEvent(event);
+      msg.handleMessageEvent(event);
+      perm.handlePermissionEvent(event);
+      fileChanges.handleFileChangeEvent(event);
+
+      const currentSession = activeSessionRef.current;
+
+      // file.edited イベント時にセッション差分を再取得する
+      if (event.type === "file.edited" && currentSession) {
+        postMessage({ type: "getSessionDiff", sessionId: currentSession.id });
       }
-    }
-    return total;
-  }, [messages]);
 
-  // 選択中のモデルのコンテキストリミットを算出
-  const contextLimit = useMemo(() => {
-    if (!selectedModel) return 0;
-    const provider = providers.find((p) => p.id === selectedModel.providerID);
-    if (!provider) return 0;
-    const model = provider.models[selectedModel.modelID];
-    return model?.limit?.context ?? 0;
-  }, [providers, selectedModel]);
+      // todo.updated イベント時にアクティブセッションの Todo を更新する
+      if (event.type === "todo.updated" && event.properties.sessionID === currentSession?.id) {
+        setTodos(event.properties.todos as Todo[]);
+      }
 
+      // session.created イベント時にアクティブセッションの子セッションを再取得する
+      // （サブエージェントが起動すると子セッションが作成されるため）
+      if (event.type === "session.created" && currentSession) {
+        postMessage({ type: "getChildSessions", sessionId: currentSession.id });
+      }
+    },
+    [session.handleSessionEvent, msg.handleMessageEvent, perm.handlePermissionEvent, fileChanges.handleFileChangeEvent],
+  );
+
+  // Extension Host → Webview message listener
   useEffect(() => {
     const handler = (e: MessageEvent<ExtToWebviewMessage>) => {
-      const msg = e.data;
-      switch (msg.type) {
+      const data = e.data;
+      switch (data.type) {
         case "sessions":
-          setSessions(msg.sessions);
+          session.setSessions(data.sessions);
           break;
         case "messages":
-          if (msg.sessionId === activeSession?.id) {
-            setMessages(msg.messages);
+          if (data.sessionId === session.activeSession?.id) {
+            msg.setMessages(data.messages);
           }
           break;
         case "activeSession":
-          setActiveSession(msg.session);
-          if (msg.session) {
-            postMessage({ type: "getMessages", sessionId: msg.session.id });
+          session.setActiveSession(data.session);
+          if (data.session) {
+            postMessage({ type: "getMessages", sessionId: data.session.id });
+            postMessage({ type: "getSessionDiff", sessionId: data.session.id });
+            postMessage({ type: "getSessionTodos", sessionId: data.session.id });
+            postMessage({ type: "getChildSessions", sessionId: data.session.id });
           } else {
-            setMessages([]);
+            msg.setMessages([]);
+            fileChanges.clearDiffs();
+            setTodos([]);
+            setChildSessions([]);
           }
           break;
         case "event":
-          handleEvent(msg.event);
+          handleEvent(data.event);
           break;
         case "providers": {
-          setProviders(msg.providers);
-          setAllProvidersData(msg.allProviders);
+          prov.setProviders(data.providers);
+          prov.setAllProvidersData(data.allProviders);
           // サーバーのモデル設定を反映する（config.model → default の順でフォールバック）
-          setSelectedModel(() => {
-            const modelStr = msg.configModel || msg.default["general"] || msg.default["code"] || Object.values(msg.default)[0];
+          prov.setSelectedModel(() => {
+            const modelStr =
+              data.configModel || data.default.general || data.default.code || Object.values(data.default)[0];
             if (!modelStr) return null;
             const slashIndex = modelStr.indexOf("/");
             if (slashIndex < 0) return null;
@@ -108,25 +134,47 @@ export function App() {
           break;
         }
         case "openEditors":
-          setOpenEditors(msg.files);
+          setOpenEditors(data.files);
           break;
         case "workspaceFiles":
-          setWorkspaceFiles(msg.files);
+          setWorkspaceFiles(data.files);
           break;
         case "toolConfig":
-          setOpenCodePaths(msg.paths);
+          setOpenCodePaths(data.paths);
           break;
         case "locale":
-          setVscodeLanguage(msg.vscodeLanguage);
+          locale.setVscodeLanguage(data.vscodeLanguage);
           break;
         case "modelUpdated": {
-          const slashIndex = msg.model.indexOf("/");
+          const slashIndex = data.model.indexOf("/");
           if (slashIndex >= 0) {
-            setSelectedModel({
-              providerID: msg.model.slice(0, slashIndex),
-              modelID: msg.model.slice(slashIndex + 1),
+            prov.setSelectedModel({
+              providerID: data.model.slice(0, slashIndex),
+              modelID: data.model.slice(slashIndex + 1),
             });
           }
+          break;
+        }
+        case "sessionDiff": {
+          if (data.sessionId === session.activeSession?.id) {
+            fileChanges.setDiffs(data.diffs);
+          }
+          break;
+        }
+        case "sessionTodos": {
+          if (data.sessionId === session.activeSession?.id) {
+            setTodos(data.todos);
+          }
+          break;
+        }
+        case "childSessions": {
+          if (data.sessionId === session.activeSession?.id) {
+            setChildSessions(data.children);
+          }
+          break;
+        }
+        case "agents": {
+          setAgents(data.agents);
           break;
         }
       }
@@ -134,279 +182,332 @@ export function App() {
     window.addEventListener("message", handler);
     postMessage({ type: "ready" });
     postMessage({ type: "getOpenEditors" });
+    postMessage({ type: "getAgents" });
     return () => window.removeEventListener("message", handler);
-  }, [activeSession?.id]);
+  }, [
+    session.activeSession?.id,
+    handleEvent,
+    locale.setVscodeLanguage,
+    msg.setMessages,
+    fileChanges.setDiffs,
+    fileChanges.clearDiffs,
+    prov.setAllProvidersData,
+    prov.setProviders,
+    prov.setSelectedModel,
+    session.setActiveSession,
+    session.setSessions,
+  ]);
 
-  const handleEvent = useCallback(
-    (event: Event) => {
-      switch (event.type) {
-        case "message.updated": {
-          const info = event.properties.info;
-          setMessages((prev) => {
-            const idx = prev.findIndex((m) => m.info.id === info.id);
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = { ...updated[idx], info };
-              return updated;
-            }
-            return [...prev, { info, parts: [] }];
-          });
-          break;
-        }
-        case "message.part.updated": {
-          const part = event.properties.part;
-          setMessages((prev) => {
-            const idx = prev.findIndex((m) => m.info.id === part.messageID);
-            if (idx < 0) return prev;
-            const updated = [...prev];
-            const msg = { ...updated[idx] };
-            const partIdx = msg.parts.findIndex((p) => p.id === part.id);
-            if (partIdx >= 0) {
-              msg.parts = [...msg.parts];
-              msg.parts[partIdx] = part;
-            } else {
-              msg.parts = [...msg.parts, part];
-            }
-            updated[idx] = msg;
-            return updated;
-          });
-          break;
-        }
-        case "session.status": {
-          setSessionBusy(event.properties.status.type === "busy");
-          break;
-        }
-        case "permission.updated": {
-          const permission = event.properties;
-          setPermissions((prev) => {
-            const next = new Map(prev);
-            next.set(permission.id, permission);
-            return next;
-          });
-          break;
-        }
-        case "permission.replied": {
-          const permissionID = event.properties.permissionID;
-          setPermissions((prev) => {
-            const next = new Map(prev);
-            next.delete(permissionID);
-            return next;
-          });
-          break;
-        }
-        case "message.removed": {
-          // 圧縮時にメッセージが削除される → messages から除去すると inputTokens も自動的に再計算される
-          const { messageID } = event.properties;
-          setMessages((prev) => prev.filter((m) => m.info.id !== messageID));
-          break;
-        }
-        case "session.updated": {
-          const info = event.properties.info;
-          setSessions((prev) =>
-            prev.map((s) => (s.id === info.id ? info : s)),
-          );
-          setActiveSession((prev) =>
-            prev?.id === info.id ? info : prev,
-          );
-          break;
-        }
-        case "session.created": {
-          setSessions((prev) => [event.properties.info, ...prev]);
-          break;
-        }
-        case "session.deleted": {
-          const deletedId = event.properties.info.id;
-          setSessions((prev) => prev.filter((s) => s.id !== deletedId));
-          break;
-        }
-      }
-    },
-    [],
-  );
+  // Cross-cutting action handlers (span multiple hooks)
 
   const handleSend = useCallback(
-    (text: string, files: FileAttachment[]) => {
-      if (!activeSession) return;
+    (text: string, files: FileAttachment[], agent?: string) => {
+      if (!session.activeSession) return;
       postMessage({
         type: "sendMessage",
-        sessionId: activeSession.id,
+        sessionId: session.activeSession.id,
         text,
-        model: selectedModel ?? undefined,
+        model: prov.selectedModel ?? undefined,
         files: files.length > 0 ? files : undefined,
+        agent,
       });
     },
-    [activeSession, selectedModel],
+    [session.activeSession, prov.selectedModel],
   );
 
-  const handleNewSession = useCallback(() => {
-    postMessage({ type: "createSession" });
-    setShowSessionList(false);
-  }, []);
-
-  const handleSelectSession = useCallback((sessionId: string) => {
-    postMessage({ type: "selectSession", sessionId });
-    setShowSessionList(false);
-  }, []);
-
-  const handleDeleteSession = useCallback((sessionId: string) => {
-    postMessage({ type: "deleteSession", sessionId });
-  }, []);
-
-  const handleModelSelect = useCallback((model: { providerID: string; modelID: string }) => {
-    setSelectedModel(model);
-    postMessage({ type: "setModel", model: `${model.providerID}/${model.modelID}` });
-  }, []);
+  // ! プレフィクスで入力されたシェルコマンドを session.shell API 経由で実行する
+  const handleShellExecute = useCallback(
+    (command: string) => {
+      if (!session.activeSession) return;
+      // 次に到着する assistant メッセージをシェル結果としてタグ付けする準備
+      msg.markPendingShell();
+      postMessage({
+        type: "executeShell",
+        sessionId: session.activeSession.id,
+        command,
+        model: prov.selectedModel ?? undefined,
+      });
+    },
+    [session.activeSession, prov.selectedModel, msg.markPendingShell],
+  );
 
   const handleAbort = useCallback(() => {
-    if (!activeSession) return;
-    postMessage({ type: "abort", sessionId: activeSession.id });
-  }, [activeSession]);
+    if (!session.activeSession) return;
+    postMessage({ type: "abort", sessionId: session.activeSession.id });
+  }, [session.activeSession]);
 
   const handleCompress = useCallback(() => {
-    if (!activeSession) return;
+    if (!session.activeSession) return;
     postMessage({
       type: "compressSession",
-      sessionId: activeSession.id,
-      model: selectedModel ?? undefined,
+      sessionId: session.activeSession.id,
+      model: prov.selectedModel ?? undefined,
     });
-  }, [activeSession, selectedModel]);
-
-  const handleOpenConfigFile = useCallback((filePath: string) => {
-    postMessage({ type: "openConfigFile", filePath });
-  }, []);
-
-  const handleOpenTerminal = useCallback(() => {
-    postMessage({ type: "openTerminal" });
-  }, []);
+  }, [session.activeSession, prov.selectedModel]);
 
   // ユーザーメッセージを編集して再送信する
   const handleEditAndResend = useCallback(
     (messageId: string, text: string) => {
-      if (!activeSession) return;
+      if (!session.activeSession) return;
       // messageId は編集対象のユーザーメッセージ。
       // その直前のメッセージまで巻き戻し、編集後のテキストを送信する。
-      const msgIndex = messages.findIndex((m) => m.info.id === messageId);
+      const msgIndex = msg.messages.findIndex((m) => m.info.id === messageId);
       if (msgIndex < 0) return;
       if (msgIndex === 0) {
         // 最初のメッセージの場合: 新規セッションを作成して送信する方がクリーン
         // ただし revert API のフォールバックとして、messageId 自体で revert
         postMessage({
           type: "editAndResend",
-          sessionId: activeSession.id,
+          sessionId: session.activeSession.id,
           messageId,
           text,
-          model: selectedModel ?? undefined,
+          model: prov.selectedModel ?? undefined,
         });
       } else {
         // 直前のメッセージまで巻き戻して再送信
-        const prevMessageId = messages[msgIndex - 1].info.id;
+        const prevMessageId = msg.messages[msgIndex - 1].info.id;
         postMessage({
           type: "editAndResend",
-          sessionId: activeSession.id,
+          sessionId: session.activeSession.id,
           messageId: prevMessageId,
           text,
-          model: selectedModel ?? undefined,
+          model: prov.selectedModel ?? undefined,
         });
       }
     },
-    [activeSession, messages, selectedModel],
+    [session.activeSession, msg.messages, prov.selectedModel],
   );
 
   // チェックポイントまで巻き戻す + ユーザーメッセージのテキストを入力欄に復元
   const handleRevertToCheckpoint = useCallback(
     (assistantMessageId: string, userText: string | null) => {
-      if (!activeSession) return;
+      if (!session.activeSession) return;
       postMessage({
         type: "revertToMessage",
-        sessionId: activeSession.id,
+        sessionId: session.activeSession.id,
         messageId: assistantMessageId,
       });
       // ユーザーメッセージのテキストを入力欄にプリフィルする
-      setPrefillText(userText ?? "");
+      msg.setPrefillText(userText ?? "");
     },
-    [activeSession],
+    [session.activeSession, msg],
   );
 
-  // メッセージから最新の ToDo リストを導出（todowrite/todoread ツールの最新の出力）
-  const latestTodos = useMemo<TodoItem[]>(() => {
-    for (let mi = messages.length - 1; mi >= 0; mi--) {
-      const parts = messages[mi].parts;
-      for (let pi = parts.length - 1; pi >= 0; pi--) {
-        const p = parts[pi];
-        if (p.type !== "tool") continue;
-        if (p.tool !== "todowrite" && p.tool !== "todoread") continue;
-        const st = p.state;
-        if (st.status === "completed" && st.output) {
-          const parsed = parseTodos(st.output);
-          if (parsed) return parsed;
-        }
-        if (st.status !== "pending") {
-          const input = st.input as Record<string, unknown> | undefined;
-          if (input) {
-            const parsed = parseTodos(input.todos ?? input);
-            if (parsed) return parsed;
-          }
-        }
+  const handleOpenDiffEditor = useCallback((filePath: string, before: string, after: string) => {
+    postMessage({ type: "openDiffEditor", filePath, before, after });
+  }, []);
+
+  // チェックポイントからセッションを Fork する
+  const handleForkFromCheckpoint = useCallback(
+    (messageId: string) => {
+      if (!session.activeSession) return;
+      postMessage({
+        type: "forkSession",
+        sessionId: session.activeSession.id,
+        messageId,
+      });
+    },
+    [session.activeSession],
+  );
+
+  // セッションを共有する
+  const handleShareSession = useCallback(() => {
+    if (!session.activeSession) return;
+    postMessage({ type: "shareSession", sessionId: session.activeSession.id });
+  }, [session.activeSession]);
+
+  // セッションの共有を解除する
+  const handleUnshareSession = useCallback(() => {
+    if (!session.activeSession) return;
+    postMessage({ type: "unshareSession", sessionId: session.activeSession.id });
+  }, [session.activeSession]);
+
+  // Undo: 最後のアシスタントメッセージまで巻き戻す
+  // 巻き戻しで消えるユーザーメッセージのテキストを入力欄に復元する。
+  const handleUndo = useCallback(() => {
+    if (!session.activeSession) return;
+    const messages = msg.messages;
+    // 最後のアシスタントメッセージを探す
+    const lastAssistantIdx = [...messages].reverse().findIndex((m) => m.info.role === "assistant");
+    if (lastAssistantIdx < 0) return;
+    const assistantIdx = messages.length - 1 - lastAssistantIdx;
+    const lastAssistantMsg = messages[assistantIdx];
+
+    // アシスタントメッセージの直後にあるユーザーメッセージのテキストを取得する
+    const nextUserMsg = messages[assistantIdx + 1];
+    if (nextUserMsg && nextUserMsg.info.role === "user") {
+      const textParts = nextUserMsg.parts.filter((p) => p.type === "text" && !(p as any).synthetic);
+      const fallback = textParts.length > 0 ? textParts : nextUserMsg.parts.filter((p) => p.type === "text");
+      const text = fallback.map((p) => (p as any).text).join("") || "";
+      msg.setPrefillText(text);
+    } else {
+      // ユーザーメッセージがない場合（アシスタントが最後のメッセージ）は空にしない
+      // revert はアシスタントメッセージ自体を消すので、その前のユーザーメッセージのテキストを復元する
+      const prevUserMsg = [...messages]
+        .slice(0, assistantIdx)
+        .reverse()
+        .find((m) => m.info.role === "user");
+      if (prevUserMsg) {
+        const textParts = prevUserMsg.parts.filter((p) => p.type === "text" && !(p as any).synthetic);
+        const fallback = textParts.length > 0 ? textParts : prevUserMsg.parts.filter((p) => p.type === "text");
+        const text = fallback.map((p) => (p as any).text).join("") || "";
+        msg.setPrefillText(text);
       }
     }
-    return [];
-  }, [messages]);
+
+    postMessage({
+      type: "undoSession",
+      sessionId: session.activeSession.id,
+      messageId: lastAssistantMsg.info.id,
+    });
+  }, [session.activeSession, msg.messages, msg.setPrefillText]);
+
+  // Redo: Undo で取り消したメッセージを復元する
+  // メッセージが復元されるので入力欄のプリフィルをクリアする。
+  const handleRedo = useCallback(() => {
+    if (!session.activeSession) return;
+    msg.setPrefillText("");
+    postMessage({ type: "redoSession", sessionId: session.activeSession.id });
+  }, [session.activeSession, msg.setPrefillText]);
+
+  // Undo 可能判定: メッセージが 2 つ以上（ユーザー + アシスタント）あり、ビジーでない
+  const canUndo = msg.messages.length >= 2 && !session.sessionBusy;
+  // Redo 可能判定: session.revert フィールドが存在する（Undo 済みの状態）
+  const canRedo = !!session.activeSession?.revert && !session.sessionBusy;
+
+  // 子セッションにナビゲートする
+  const handleNavigateToChild = useCallback(
+    (sessionId: string) => {
+      session.handleSelectSession(sessionId);
+    },
+    [session.handleSelectSession],
+  );
+
+  // 親セッションに戻る
+  const handleNavigateToParent = useCallback(() => {
+    if (!session.activeSession?.parentID) return;
+    session.handleSelectSession(session.activeSession.parentID);
+  }, [session.activeSession, session.handleSelectSession]);
+
+  // 子セッション閲覧中かの判定
+  const isChildSession = !!session.activeSession?.parentID;
+
+  const contextValue: AppContextValue = {
+    sessions: session.sessions,
+    activeSession: session.activeSession,
+    sessionBusy: session.sessionBusy,
+    showSessionList: session.showSessionList,
+    onNewSession: session.handleNewSession,
+    onSelectSession: session.handleSelectSession,
+    onDeleteSession: session.handleDeleteSession,
+    onToggleSessionList: session.toggleSessionList,
+    messages: msg.messages,
+    inputTokens: msg.inputTokens,
+    latestTodos: todos,
+    prefillText: msg.prefillText,
+    onPrefillConsumed: msg.consumePrefill,
+    providers: prov.providers,
+    allProvidersData: prov.allProvidersData,
+    selectedModel: prov.selectedModel,
+    onModelSelect: prov.handleModelSelect,
+    contextLimit: prov.contextLimit,
+    permissions: perm.permissions,
+    openEditors,
+    workspaceFiles,
+    fileDiffs: fileChanges.diffs,
+    onOpenDiffEditor: handleOpenDiffEditor,
+    onSend: handleSend,
+    onShellExecute: handleShellExecute,
+    isShellMessage: msg.isShellMessage,
+    onAbort: handleAbort,
+    onCompress: handleCompress,
+    isCompressing: !!session.activeSession?.time?.compacting,
+    onEditAndResend: handleEditAndResend,
+    onRevertToCheckpoint: handleRevertToCheckpoint,
+    onForkFromCheckpoint: handleForkFromCheckpoint,
+    openCodePaths,
+    onOpenConfigFile: handleOpenConfigFile,
+    onOpenTerminal: handleOpenTerminal,
+    localeSetting: locale.localeSetting,
+    onLocaleSettingChange: locale.handleLocaleSettingChange,
+    childSessions,
+    onNavigateToChild: handleNavigateToChild,
+    onNavigateToParent: handleNavigateToParent,
+  };
 
   return (
-    <LocaleProvider value={strings}>
-    <div className="chat-container">
-      <ChatHeader
-        activeSession={activeSession}
-        onNewSession={handleNewSession}
-        onToggleSessionList={() => setShowSessionList((s) => !s)}
-      />
-      {showSessionList && (
-        <SessionList
-          sessions={sessions}
-          activeSessionId={activeSession?.id ?? null}
-          onSelect={handleSelectSession}
-          onDelete={handleDeleteSession}
-          onClose={() => setShowSessionList(false)}
-        />
-      )}
-      {activeSession ? (
-        <>
-          <MessagesArea
-            messages={messages}
-            sessionBusy={sessionBusy}
-            activeSessionId={activeSession.id}
-            permissions={permissions}
-            onEditAndResend={handleEditAndResend}
-            onRevertToCheckpoint={handleRevertToCheckpoint}
+    <LocaleProvider value={locale.strings}>
+      <AppContextProvider value={contextValue}>
+        <div className="chat-container">
+          <ChatHeader
+            activeSession={session.activeSession}
+            onNewSession={session.handleNewSession}
+            onToggleSessionList={session.toggleSessionList}
+            onShareSession={msg.messages.length > 0 ? handleShareSession : undefined}
+            onUnshareSession={handleUnshareSession}
+            onNavigateToParent={isChildSession ? handleNavigateToParent : undefined}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            isBusy={session.sessionBusy}
           />
-          {latestTodos.length > 0 && <TodoHeader todos={latestTodos} />}
-          <InputArea
-            onSend={handleSend}
-            onAbort={handleAbort}
-            isBusy={sessionBusy}
-            providers={providers}
-            allProvidersData={allProvidersData}
-            selectedModel={selectedModel}
-            onModelSelect={handleModelSelect}
-            openEditors={openEditors}
-            workspaceFiles={workspaceFiles}
-            inputTokens={inputTokens}
-            contextLimit={contextLimit}
-            onCompress={handleCompress}
-            isCompressing={!!activeSession?.time?.compacting}
-            prefillText={prefillText}
-            onPrefillConsumed={() => setPrefillText("")}
-            openCodePaths={openCodePaths}
-            onOpenConfigFile={handleOpenConfigFile}
-            onOpenTerminal={handleOpenTerminal}
-            localeSetting={localeSetting}
-            onLocaleSettingChange={handleLocaleSettingChange}
-          />
-        </>
-      ) : (
-        <EmptyState onNewSession={handleNewSession} />
-      )}
-    </div>
+          {session.showSessionList && (
+            <SessionList
+              sessions={session.sessions}
+              activeSessionId={session.activeSession?.id ?? null}
+              onSelect={session.handleSelectSession}
+              onDelete={session.handleDeleteSession}
+              onClose={session.toggleSessionList}
+            />
+          )}
+          {session.activeSession ? (
+            <>
+              <MessagesArea
+                messages={msg.messages}
+                sessionBusy={session.sessionBusy}
+                activeSessionId={session.activeSession.id}
+                permissions={perm.permissions}
+                onEditAndResend={handleEditAndResend}
+                onRevertToCheckpoint={handleRevertToCheckpoint}
+                onForkFromCheckpoint={handleForkFromCheckpoint}
+              />
+              {todos.length > 0 && <TodoHeader todos={todos} />}
+              {fileChanges.diffs.length > 0 && (
+                <FileChangesHeader diffs={fileChanges.diffs} onOpenDiffEditor={handleOpenDiffEditor} />
+              )}
+              {!isChildSession && (
+                <InputArea
+                  onSend={handleSend}
+                  onShellExecute={handleShellExecute}
+                  onAbort={handleAbort}
+                  isBusy={session.sessionBusy}
+                  providers={prov.providers}
+                  allProvidersData={prov.allProvidersData}
+                  selectedModel={prov.selectedModel}
+                  onModelSelect={prov.handleModelSelect}
+                  openEditors={openEditors}
+                  workspaceFiles={workspaceFiles}
+                  inputTokens={msg.inputTokens}
+                  contextLimit={prov.contextLimit}
+                  onCompress={handleCompress}
+                  isCompressing={!!session.activeSession?.time?.compacting}
+                  prefillText={msg.prefillText}
+                  onPrefillConsumed={msg.consumePrefill}
+                  openCodePaths={openCodePaths}
+                  onOpenConfigFile={handleOpenConfigFile}
+                  onOpenTerminal={handleOpenTerminal}
+                  localeSetting={locale.localeSetting}
+                  onLocaleSettingChange={locale.handleLocaleSettingChange}
+                  agents={agents}
+                />
+              )}
+            </>
+          ) : (
+            <EmptyState onNewSession={session.handleNewSession} />
+          )}
+        </div>
+      </AppContextProvider>
     </LocaleProvider>
   );
 }

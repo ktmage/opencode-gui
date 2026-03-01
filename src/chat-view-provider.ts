@@ -1,7 +1,19 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import * as vscode from "vscode";
-import { OpenCodeConnection, type Event, type Session, type Message, type Part, type Provider, type OpenCodePath, type ProviderListResult } from "./opencode-client";
-import * as path from "path";
-import * as fs from "fs/promises";
+import type {
+  Agent,
+  Event,
+  FileDiff,
+  Message,
+  OpenCodeConnection,
+  OpenCodePath,
+  Part,
+  Provider,
+  ProviderListResult,
+  Session,
+  Todo,
+} from "./opencode-client";
 
 // --- File attachment ---
 type FileAttachment = {
@@ -15,17 +27,34 @@ export type ExtToWebviewMessage =
   | { type: "messages"; sessionId: string; messages: Array<{ info: Message; parts: Part[] }> }
   | { type: "event"; event: Event }
   | { type: "activeSession"; session: Session | null }
-  | { type: "providers"; providers: Provider[]; allProviders: ProviderListResult; default: Record<string, string>; configModel?: string }
+  | {
+      type: "providers";
+      providers: Provider[];
+      allProviders: ProviderListResult;
+      default: Record<string, string>;
+      configModel?: string;
+    }
   | { type: "openEditors"; files: FileAttachment[] }
   | { type: "workspaceFiles"; files: FileAttachment[] }
   | { type: "contextUsage"; usage: { inputTokens: number; contextLimit: number } }
   | { type: "toolConfig"; paths: OpenCodePath }
   | { type: "locale"; vscodeLanguage: string }
-  | { type: "modelUpdated"; model: string; default: Record<string, string> };
+  | { type: "modelUpdated"; model: string; default: Record<string, string> }
+  | { type: "sessionDiff"; sessionId: string; diffs: FileDiff[] }
+  | { type: "sessionTodos"; sessionId: string; todos: Todo[] }
+  | { type: "childSessions"; sessionId: string; children: Session[] }
+  | { type: "agents"; agents: Agent[] };
 
 // --- Webview → Extension Host ---
 export type WebviewToExtMessage =
-  | { type: "sendMessage"; sessionId: string; text: string; model?: { providerID: string; modelID: string }; files?: FileAttachment[] }
+  | {
+      type: "sendMessage";
+      sessionId: string;
+      text: string;
+      model?: { providerID: string; modelID: string };
+      files?: FileAttachment[];
+      agent?: string;
+    }
   | { type: "createSession"; title?: string }
   | { type: "listSessions" }
   | { type: "selectSession"; sessionId: string }
@@ -38,10 +67,28 @@ export type WebviewToExtMessage =
   | { type: "searchWorkspaceFiles"; query: string }
   | { type: "compressSession"; sessionId: string; model?: { providerID: string; modelID: string } }
   | { type: "revertToMessage"; sessionId: string; messageId: string }
-  | { type: "editAndResend"; sessionId: string; messageId: string; text: string; model?: { providerID: string; modelID: string }; files?: FileAttachment[] }
+  | {
+      type: "editAndResend";
+      sessionId: string;
+      messageId: string;
+      text: string;
+      model?: { providerID: string; modelID: string };
+      files?: FileAttachment[];
+    }
+  | { type: "executeShell"; sessionId: string; command: string; model?: { providerID: string; modelID: string } }
   | { type: "openConfigFile"; filePath: string }
   | { type: "openTerminal" }
   | { type: "setModel"; model: string }
+  | { type: "forkSession"; sessionId: string; messageId?: string }
+  | { type: "getSessionDiff"; sessionId: string }
+  | { type: "getSessionTodos"; sessionId: string }
+  | { type: "getChildSessions"; sessionId: string }
+  | { type: "getAgents" }
+  | { type: "shareSession"; sessionId: string }
+  | { type: "unshareSession"; sessionId: string }
+  | { type: "undoSession"; sessionId: string; messageId: string }
+  | { type: "redoSession"; sessionId: string }
+  | { type: "openDiffEditor"; filePath: string; before: string; after: string }
   | { type: "ready" };
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -66,16 +113,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(this.extensionUri, "dist", "webview"),
-      ],
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist", "webview")],
     };
 
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
 
-    webviewView.webview.onDidReceiveMessage(
-      (message: WebviewToExtMessage) => this.handleWebviewMessage(message),
-    );
+    webviewView.webview.onDidReceiveMessage((message: WebviewToExtMessage) => this.handleWebviewMessage(message));
 
     // SSE イベントを Webview に転送する
     this.connection.onEvent((event) => {
@@ -114,12 +157,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         } catch {
           // ファイルが存在しない場合は undefined のまま
         }
-        this.postMessage({ type: "providers", providers: providersData.providers, allProviders, default: providersData.default, configModel });
+        this.postMessage({
+          type: "providers",
+          providers: providersData.providers,
+          allProviders,
+          default: providersData.default,
+          configModel,
+        });
         this.postMessage({ type: "toolConfig", paths });
         break;
       }
       case "sendMessage": {
-        await this.connection.sendMessage(message.sessionId, message.text, message.model, message.files);
+        await this.connection.sendMessage(message.sessionId, message.text, message.model, message.files, message.agent);
         break;
       }
       case "createSession": {
@@ -159,11 +208,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "replyPermission": {
-        await this.connection.replyPermission(
-          message.sessionId,
-          message.permissionId,
-          message.response,
-        );
+        await this.connection.replyPermission(message.sessionId, message.permissionId, message.response);
         break;
       }
       case "abort": {
@@ -183,7 +228,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         } catch {
           // ignore
         }
-        this.postMessage({ type: "providers", providers: providersData.providers, allProviders, default: providersData.default, configModel });
+        this.postMessage({
+          type: "providers",
+          providers: providersData.providers,
+          allProviders,
+          default: providersData.default,
+          configModel,
+        });
         break;
       }
       case "getOpenEditors": {
@@ -239,6 +290,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         await this.connection.sendMessage(message.sessionId, message.text, message.model, message.files);
         break;
       }
+      case "executeShell": {
+        await this.connection.executeShell(message.sessionId, message.command, message.model);
+        break;
+      }
       case "openConfigFile": {
         const filePath = message.filePath;
         const uri = vscode.Uri.file(filePath);
@@ -248,7 +303,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           // ファイルが存在しない場合は初期内容で作成する
           const dir = vscode.Uri.file(filePath.substring(0, filePath.lastIndexOf("/")));
           await vscode.workspace.fs.createDirectory(dir);
-          await vscode.workspace.fs.writeFile(uri, Buffer.from('{\n  "$schema": "https://opencode.ai/config.json"\n}\n'));
+          await vscode.workspace.fs.writeFile(
+            uri,
+            Buffer.from('{\n  "$schema": "https://opencode.ai/config.json"\n}\n'),
+          );
         }
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc);
@@ -282,8 +340,81 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
         configJson.model = message.model;
         await fs.mkdir(path.dirname(configFilePath), { recursive: true });
-        await fs.writeFile(configFilePath, JSON.stringify(configJson, null, 2) + "\n");
+        await fs.writeFile(configFilePath, `${JSON.stringify(configJson, null, 2)}\n`);
         this.postMessage({ type: "modelUpdated", model: message.model, default: {} });
+        break;
+      }
+      case "forkSession": {
+        // Fork で新しいセッションを作成し、アクティブセッションを切り替える
+        const forkedSession = await this.connection.forkSession(message.sessionId, message.messageId);
+        this.activeSession = forkedSession;
+        this.postMessage({ type: "activeSession", session: forkedSession });
+        const forkedSessions = await this.connection.listSessions();
+        this.postMessage({ type: "sessions", sessions: forkedSessions });
+        break;
+      }
+      case "getSessionDiff": {
+        const diffs = await this.connection.getSessionDiff(message.sessionId);
+        this.postMessage({ type: "sessionDiff", sessionId: message.sessionId, diffs });
+        break;
+      }
+      case "getSessionTodos": {
+        const todos = await this.connection.getSessionTodos(message.sessionId);
+        this.postMessage({ type: "sessionTodos", sessionId: message.sessionId, todos });
+        break;
+      }
+      case "getChildSessions": {
+        const children = await this.connection.getChildSessions(message.sessionId);
+        this.postMessage({ type: "childSessions", sessionId: message.sessionId, children });
+        break;
+      }
+      case "getAgents": {
+        const agents = await this.connection.getAgents();
+        this.postMessage({ type: "agents", agents });
+        break;
+      }
+      case "shareSession": {
+        const session = await this.connection.shareSession(message.sessionId);
+        this.activeSession = session;
+        this.postMessage({ type: "activeSession", session });
+        // 共有 URL をクリップボードにコピーする
+        if (session.share?.url) {
+          await vscode.env.clipboard.writeText(session.share.url);
+        }
+        break;
+      }
+      case "unshareSession": {
+        const session = await this.connection.unshareSession(message.sessionId);
+        this.activeSession = session;
+        this.postMessage({ type: "activeSession", session });
+        break;
+      }
+      case "undoSession": {
+        const session = await this.connection.revertSession(message.sessionId, message.messageId);
+        this.activeSession = session;
+        this.postMessage({ type: "activeSession", session });
+        const messages = await this.connection.getMessages(message.sessionId);
+        this.postMessage({ type: "messages", sessionId: message.sessionId, messages });
+        break;
+      }
+      case "redoSession": {
+        const session = await this.connection.unrevertSession(message.sessionId);
+        this.activeSession = session;
+        this.postMessage({ type: "activeSession", session });
+        const messages = await this.connection.getMessages(message.sessionId);
+        this.postMessage({ type: "messages", sessionId: message.sessionId, messages });
+        break;
+      }
+      case "openDiffEditor": {
+        // 仮想ドキュメントを使って VS Code のネイティブ diff エディタを開く
+        const beforeUri = vscode.Uri.parse(
+          `opencode-diff-before:${message.filePath}?${encodeURIComponent(message.before)}`,
+        );
+        const afterUri = vscode.Uri.parse(
+          `opencode-diff-after:${message.filePath}?${encodeURIComponent(message.after)}`,
+        );
+        const fileName = path.basename(message.filePath);
+        await vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri, `${fileName} (Changes)`);
         break;
       }
     }
@@ -297,12 +428,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const distUri = vscode.Uri.joinPath(this.extensionUri, "dist", "webview");
 
     // Vite がビルドした JS/CSS アセットを参照する
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(distUri, "assets", "index.js"),
-    );
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(distUri, "assets", "index.css"),
-    );
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(distUri, "assets", "index.js"));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(distUri, "assets", "index.css"));
 
     const nonce = getNonce();
 

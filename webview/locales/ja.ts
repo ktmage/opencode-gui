@@ -19,6 +19,8 @@ export const ja: typeof en = {
   "input.placeholder": "OpenCode に質問... (# でファイルを添付)",
   "input.addFile": (name: string) => `${name} を追加`,
   "input.openTerminal": "ターミナルで開く",
+  "input.shellMode": "シェルモード",
+  "input.placeholder.shell": "シェルコマンドを入力...",
   "input.settings": "設定",
   "input.stop": "停止",
   "input.send": "送信",
@@ -35,6 +37,11 @@ export const ja: typeof en = {
   // MessagesArea
   "checkpoint.revertTitle": "ここまで巻き戻す",
   "checkpoint.retryFromHere": "ここからやり直す",
+  "checkpoint.forkFromHere": "ここから分岐",
+
+  // Undo/Redo
+  "header.undo": "元に戻す",
+  "header.redo": "やり直し",
 
   // PermissionView
   "permission.allow": "許可",
@@ -46,6 +53,12 @@ export const ja: typeof en = {
   "session.untitled": "無題",
   "session.delete": "削除",
   "session.select": "セッションを選択",
+
+  // Time (relative)
+  "time.now": "今",
+  "time.minutes": (n: number) => `${n}分`,
+  "time.hours": (n: number) => `${n}時間`,
+  "time.days": (n: number) => `${n}日`,
 
   // ToolPartView - category labels
   "tool.read": "読み取り",
@@ -79,6 +92,9 @@ export const ja: typeof en = {
   "context.compressing": "圧縮中...",
   "context.compress": "会話を圧縮",
 
+  // ShellResultView
+  "shell.title": "シェル",
+
   // ToolConfigPanel
   "config.title": "設定",
   "config.projectConfig": "プロジェクト設定",
@@ -91,4 +107,22 @@ export const ja: typeof en = {
   "config.langAuto": "自動 (VS Code)",
   "config.langEn": "English",
   "config.langJa": "日本語",
+
+  // FileChangesHeader
+  "fileChanges.title": "ファイル変更",
+  "fileChanges.noChanges": "ファイル変更なし",
+  "fileChanges.openDiff": "差分エディタで開く",
+  "fileChanges.toggle": "ファイル変更",
+
+  // Share
+  "share.share": "セッションを共有",
+  "share.unshare": "共有を解除",
+  "share.copied": "共有 URL をクリップボードにコピーしました",
+
+  // ChildSession
+  "childSession.agent": "エージェント",
+  "childSession.backToParent": "親セッションに戻る",
+
+  // AgentMention
+  "input.noAgents": "利用可能なエージェントがありません",
 };

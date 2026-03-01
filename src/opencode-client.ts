@@ -1,21 +1,37 @@
-import * as path from "path";
+import * as path from "node:path";
 import {
+  type Agent,
+  type Config,
   createOpencodeClient,
   createOpencodeServer,
-  type OpencodeClient,
   type Event,
-  type Session,
+  type FileDiff,
+  type McpStatus,
   type Message,
+  type Path as OpenCodePath,
+  type OpencodeClient,
   type Part,
   type Provider,
-  type McpStatus,
+  type Session,
+  type Todo,
   type ToolListItem,
-  type Config,
-  type Path as OpenCodePath,
 } from "@opencode-ai/sdk";
 import * as vscode from "vscode";
 
-export type { Event, Session, Message, Part, Provider, McpStatus, ToolListItem, Config, OpenCodePath };
+export type {
+  Agent,
+  Event,
+  Session,
+  Message,
+  Part,
+  Provider,
+  McpStatus,
+  ToolListItem,
+  Config,
+  OpenCodePath,
+  FileDiff,
+  Todo,
+};
 
 // provider.list() が返す生データ型
 export type ProviderListResult = {
@@ -150,11 +166,18 @@ export class OpenCodeConnection {
     });
   }
 
+  async forkSession(sessionId: string, messageId?: string): Promise<Session> {
+    const client = this.requireClient();
+    const response = await client.session.fork({
+      path: { id: sessionId },
+      body: { messageID: messageId },
+    });
+    return response.data!;
+  }
+
   // --- Message API ---
 
-  async getMessages(
-    sessionId: string,
-  ): Promise<Array<{ info: Message; parts: Part[] }>> {
+  async getMessages(sessionId: string): Promise<Array<{ info: Message; parts: Part[] }>> {
     const client = this.requireClient();
     const response = await client.session.messages({
       path: { id: sessionId },
@@ -171,11 +194,14 @@ export class OpenCodeConnection {
     text: string,
     model?: { providerID: string; modelID: string },
     files?: Array<{ filePath: string; fileName: string }>,
+    agent?: string,
   ): Promise<void> {
     const client = this.requireClient();
-    const parts: Array<{ type: "text"; text: string } | { type: "file"; mime: string; url: string; filename: string }> = [
-      { type: "text", text },
-    ];
+    const parts: Array<
+      | { type: "text"; text: string }
+      | { type: "file"; mime: string; url: string; filename: string }
+      | { type: "agent"; name: string }
+    > = [{ type: "text", text }];
     if (files) {
       for (const file of files) {
         // filePath はワークスペース相対パス。cwd 基準で絶対パスに変換する。
@@ -190,6 +216,12 @@ export class OpenCodeConnection {
         });
       }
     }
+    // @agent メンションはサブエージェント呼び出しを示す AgentPartInput として parts に含める。
+    // body.agent はプロンプトを処理するエージェントの切り替え（primary agent 間）に使われるため、
+    // サブエージェント起動には AgentPartInput を使う。
+    if (agent) {
+      parts.push({ type: "agent", name: agent });
+    }
     await client.session.promptAsync({
       path: { id: sessionId },
       body: {
@@ -203,6 +235,20 @@ export class OpenCodeConnection {
     const client = this.requireClient();
     await client.session.abort({
       path: { id: sessionId },
+    });
+  }
+
+  // --- Shell API ---
+
+  async executeShell(
+    sessionId: string,
+    command: string,
+    model?: { providerID: string; modelID: string },
+  ): Promise<void> {
+    const client = this.requireClient();
+    await client.session.shell({
+      path: { id: sessionId },
+      body: { agent: "default", command, model },
     });
   }
 
@@ -234,12 +280,65 @@ export class OpenCodeConnection {
     });
   }
 
+  // --- Session Children API ---
+
+  async getChildSessions(sessionId: string): Promise<Session[]> {
+    const client = this.requireClient();
+    const response = await client.session.children({
+      path: { id: sessionId },
+    });
+    return response.data!;
+  }
+
+  // --- Session Todo API ---
+
+  async getSessionTodos(sessionId: string): Promise<Todo[]> {
+    const client = this.requireClient();
+    const response = await client.session.todo({
+      path: { id: sessionId },
+    });
+    return response.data!;
+  }
+
+  // --- Session Share API ---
+
+  async shareSession(sessionId: string): Promise<Session> {
+    const client = this.requireClient();
+    const response = await client.session.share({
+      path: { id: sessionId },
+    });
+    return response.data!;
+  }
+
+  async unshareSession(sessionId: string): Promise<Session> {
+    const client = this.requireClient();
+    const response = await client.session.unshare({
+      path: { id: sessionId },
+    });
+    return response.data!;
+  }
+
+  // --- Agent API ---
+
+  async getAgents(): Promise<Agent[]> {
+    const client = this.requireClient();
+    const response = await client.app.agents();
+    return response.data!;
+  }
+
+  // --- Session Diff API ---
+
+  async getSessionDiff(sessionId: string): Promise<FileDiff[]> {
+    const client = this.requireClient();
+    const response = await client.session.diff({
+      path: { id: sessionId },
+    });
+    return response.data!;
+  }
+
   // --- Revert API ---
 
-  async revertSession(
-    sessionId: string,
-    messageID: string,
-  ): Promise<Session> {
+  async revertSession(sessionId: string, messageID: string): Promise<Session> {
     const client = this.requireClient();
     const response = await client.session.revert({
       path: { id: sessionId },
@@ -248,12 +347,19 @@ export class OpenCodeConnection {
     return response.data!;
   }
 
+  // --- Unrevert API ---
+
+  async unrevertSession(sessionId: string): Promise<Session> {
+    const client = this.requireClient();
+    const response = await client.session.unrevert({
+      path: { id: sessionId },
+    });
+    return response.data!;
+  }
+
   // --- Summarize API ---
 
-  async summarizeSession(
-    sessionId: string,
-    model?: { providerID: string; modelID: string },
-  ): Promise<void> {
+  async summarizeSession(sessionId: string, model?: { providerID: string; modelID: string }): Promise<void> {
     const client = this.requireClient();
     await client.session.summarize({
       path: { id: sessionId },
@@ -321,9 +427,7 @@ export class OpenCodeConnection {
 
   private requireClient(): OpencodeClient {
     if (!this.client) {
-      throw new Error(
-        "OpenCode client is not connected. Call connect() first.",
-      );
+      throw new Error("OpenCode client is not connected. Call connect() first.");
     }
     return this.client;
   }

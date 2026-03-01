@@ -2,16 +2,16 @@
   "name": "opencodegui",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "ktmage",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ktmage/OpenCodeGUI"
+    "url": "https://github.com/ktmage/opencode-gui"
   },
-  "homepage": "https://github.com/ktmage/OpenCodeGUI#readme",
+  "homepage": "https://github.com/ktmage/opencode-gui#readme",
   "bugs": {
-    "url": "https://github.com/ktmage/OpenCodeGUI/issues"
+    "url": "https://github.com/ktmage/opencode-gui/issues"
   },
   "keywords": [
     "opencode",
@@ -62,15 +62,20 @@
     "build:webview": "vite build",
     "watch:ext": "node esbuild.mjs --watch",
     "watch:webview": "vite build --watch",
+    "check": "biome check .",
+    "check:fix": "biome check --fix .",
+    "format": "biome format --write .",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "package": "vsce package",
     "publish": "vsce publish"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -87,6 +92,8 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "^1.2.10"
+    "@opencode-ai/sdk": "^1.2.10",
+    "dompurify": "^3.3.1",
+    "react-icons": "^5.5.0"
   }
 }
