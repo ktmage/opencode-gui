@@ -1,5 +1,6 @@
 import type { Agent } from "@opencode-ai/sdk";
 import { useLocale } from "../../../locales";
+import { getFileIcon } from "../../../utils/file-icons";
 import type { FileAttachment } from "../../../vscode-api";
 import { IconButton } from "../../atoms/IconButton";
 import { AgentIcon, ClipIcon, CloseIcon, PlusIcon, TerminalIcon } from "../../atoms/icons";
@@ -72,16 +73,18 @@ export function FileAttachmentBar({
               />
               <div className={styles.pickerList}>
                 {pickerFiles.length > 0 ? (
-                  pickerFiles
-                    .slice(0, 15)
-                    .map((file) => (
+                  pickerFiles.slice(0, 15).map((file) => {
+                    const FileIcon = getFileIcon(file.fileName);
+                    return (
                       <ListItem
                         key={file.filePath}
                         title={file.fileName}
                         description={file.filePath}
+                        icon={<FileIcon width={14} height={14} />}
                         onClick={() => onAddFile(file)}
                       />
-                    ))
+                    );
+                  })
                 ) : (
                   <div className={styles.pickerEmpty}>{t["input.noFiles"]}</div>
                 )}
@@ -123,31 +126,43 @@ export function FileAttachmentBar({
         )}
       </div>
       {/* 添付されたファイルチップ (インライン) */}
-      {attachedFiles.map((file) => (
-        <div key={file.filePath} className={styles.chip}>
-          <span className={styles.chipName}>{file.fileName}</span>
-          <button
-            type="button"
-            className={styles.chipRemove}
-            onClick={() => onRemoveFile(file.filePath)}
-            title={t["input.remove"]}
-          >
-            <CloseIcon width={12} height={12} />
-          </button>
-        </div>
-      ))}
+      {attachedFiles.map((file) => {
+        const ChipIcon = getFileIcon(file.fileName);
+        return (
+          <div key={file.filePath} className={styles.chip}>
+            <span className={styles.chipIcon}>
+              <ChipIcon width={14} height={14} />
+            </span>
+            <span className={styles.chipName}>{file.fileName}</span>
+            <button
+              type="button"
+              className={styles.chipRemove}
+              onClick={() => onRemoveFile(file.filePath)}
+              title={t["input.remove"]}
+            >
+              <CloseIcon width={12} height={12} />
+            </button>
+          </div>
+        );
+      })}
       {/* 現在開いているファイルの quick-add ボタン */}
-      {activeEditorFile && !isActiveAttached && (
-        <button
-          type="button"
-          className={styles.fileButton}
-          onClick={() => onAddFile(activeEditorFile)}
-          title={t["input.addFile"](activeEditorFile.filePath)}
-        >
-          <PlusIcon />
-          <span>{activeEditorFile.fileName}</span>
-        </button>
-      )}
+      {activeEditorFile &&
+        !isActiveAttached &&
+        (() => {
+          const QuickAddIcon = getFileIcon(activeEditorFile.fileName);
+          return (
+            <button
+              type="button"
+              className={styles.fileButton}
+              onClick={() => onAddFile(activeEditorFile)}
+              title={t["input.addFile"](activeEditorFile.filePath)}
+            >
+              <PlusIcon />
+              <QuickAddIcon width={12} height={12} />
+              <span>{activeEditorFile.fileName}</span>
+            </button>
+          );
+        })()}
     </div>
   );
 }
