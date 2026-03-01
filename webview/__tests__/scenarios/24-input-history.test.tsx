@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebviewPersistedState } from "../../vscode-api";
-import { getPersistedState, postMessage, setPersistedState } from "../../vscode-api";
+import { getPersistedState, setPersistedState } from "../../vscode-api";
 import { createAllProvidersData, createProvider, createSession } from "../factories";
 import { renderApp, sendExtMessage } from "../helpers";
 

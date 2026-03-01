@@ -128,7 +128,7 @@ describe("useInputHistory", () => {
       const { result } = renderHook(() => useInputHistory());
       let entry: string | null = null;
       act(() => {
-        result.current.navigateUp("my draft");   // → "second"
+        result.current.navigateUp("my draft"); // → "second"
         entry = result.current.navigateDown("second"); // → ドラフト
       });
       expect(entry).toBe("my draft");
@@ -139,12 +139,12 @@ describe("useInputHistory", () => {
       const { result } = renderHook(() => useInputHistory());
       const entries: (string | null)[] = [];
       act(() => {
-        entries.push(result.current.navigateUp("draft"));   // → "c"
-        entries.push(result.current.navigateUp("c"));       // → "b"
-        entries.push(result.current.navigateUp("b"));       // → "a"
-        entries.push(result.current.navigateDown("a"));     // → "b"
-        entries.push(result.current.navigateDown("b"));     // → "c"
-        entries.push(result.current.navigateDown("c"));     // → "draft"
+        entries.push(result.current.navigateUp("draft")); // → "c"
+        entries.push(result.current.navigateUp("c")); // → "b"
+        entries.push(result.current.navigateUp("b")); // → "a"
+        entries.push(result.current.navigateDown("a")); // → "b"
+        entries.push(result.current.navigateDown("b")); // → "c"
+        entries.push(result.current.navigateDown("c")); // → "draft"
       });
       expect(entries).toEqual(["c", "b", "a", "b", "c", "draft"]);
     });
@@ -169,8 +169,8 @@ describe("useInputHistory", () => {
       const { result } = renderHook(() => useInputHistory());
       let entry: string | null = null;
       act(() => {
-        result.current.navigateUp("draft1");  // → "b"
-        result.current.navigateUp("b");       // → "a"
+        result.current.navigateUp("draft1"); // → "b"
+        result.current.navigateUp("b"); // → "a"
         result.current.resetNavigation();
         entry = result.current.navigateUp("draft2");
       });
