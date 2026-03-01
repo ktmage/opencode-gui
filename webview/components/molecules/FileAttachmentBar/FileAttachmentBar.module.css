@@ -96,6 +96,12 @@
   line-height: 1;
 }
 
+.chipIcon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .chipName {
   max-width: 120px;
   overflow: hidden;
