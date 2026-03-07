@@ -107,6 +107,7 @@
   background-color: inherit;
   border: none;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   max-height: 400px;
   overflow-y: auto;
 }

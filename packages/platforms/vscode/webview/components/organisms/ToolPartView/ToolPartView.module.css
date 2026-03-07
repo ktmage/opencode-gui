@@ -131,6 +131,7 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   max-height: 200px;
+  overflow-x: hidden;
   overflow-y: auto;
   color: var(--vscode-descriptionForeground);
 }
