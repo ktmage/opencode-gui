@@ -2,6 +2,7 @@ import type { FileDiff } from "@opencodegui/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { FileChangesHeader } from "../../../components/molecules/FileChangesHeader";
+import { postMessage } from "../../../vscode-api";
 
 function createFileDiff(overrides: Partial<FileDiff> = {}): FileDiff {
   return {
@@ -18,6 +19,7 @@ describe("FileChangesHeader", () => {
   const defaultProps = {
     diffs: [createFileDiff()],
     onOpenDiffEditor: vi.fn(),
+    difitAvailable: false,
   };
 
   // default rendering
@@ -257,6 +259,64 @@ describe("FileChangesHeader", () => {
       fireEvent.click(container.querySelector(".bar")!);
       const fileStats = container.querySelector(".fileStats");
       expect(fileStats?.querySelector(".statRemove")?.textContent).toBe("−2");
+    });
+  });
+
+  // diff review button
+  context("difitAvailable が true の場合", () => {
+    // shows review button in header bar
+    it("ヘッダーバーにレビューボタンを表示すること", () => {
+      const { container } = render(<FileChangesHeader {...defaultProps} difitAvailable={true} />);
+      const bar = container.querySelector(".bar")!;
+      expect(bar.querySelector(".reviewButton")).toBeTruthy();
+    });
+
+    // sends openDiffReview on header review button click
+    it("ヘッダーのレビューボタンクリックで openDiffReview メッセージを送信すること", () => {
+      const { container } = render(<FileChangesHeader {...defaultProps} difitAvailable={true} />);
+      const reviewBtn = container.querySelector(".reviewButton")!;
+      fireEvent.click(reviewBtn);
+      expect(postMessage).toHaveBeenCalledWith({ type: "openDiffReview" });
+    });
+
+    // shows per-file review button when expanded
+    it("展開時にファイルごとのレビューボタンを表示すること", () => {
+      const { container } = render(<FileChangesHeader {...defaultProps} difitAvailable={true} />);
+      fireEvent.click(container.querySelector(".bar")!);
+      // openButton は ExternalLink（diff editor）と ExternalLink（diff review）の 2 つ
+      const buttons = container.querySelectorAll(".openButton");
+      expect(buttons.length).toBe(2);
+    });
+
+    // sends openDiffReview with focusFile on per-file button click
+    it("ファイルごとのボタンクリックで focusFile 付きメッセージを送信すること", () => {
+      const diff = createFileDiff({ file: "src/app.ts" });
+      const { container } = render(
+        <FileChangesHeader diffs={[diff]} onOpenDiffEditor={vi.fn()} difitAvailable={true} />,
+      );
+      fireEvent.click(container.querySelector(".bar")!);
+      // 2 番目の openButton が diff review ボタン
+      const buttons = container.querySelectorAll(".openButton");
+      fireEvent.click(buttons[1]);
+      expect(postMessage).toHaveBeenCalledWith({ type: "openDiffReview", focusFile: "src/app.ts" });
+    });
+  });
+
+  context("difitAvailable が false の場合", () => {
+    // does not show review button in header bar
+    it("ヘッダーバーにレビューボタンが表示されないこと", () => {
+      const { container } = render(<FileChangesHeader {...defaultProps} difitAvailable={false} />);
+      const bar = container.querySelector(".bar")!;
+      expect(bar.querySelector(".reviewButton")).toBeFalsy();
+    });
+
+    // does not show per-file review button
+    it("展開時にファイルごとのレビューボタンが表示されないこと", () => {
+      const { container } = render(<FileChangesHeader {...defaultProps} difitAvailable={false} />);
+      fireEvent.click(container.querySelector(".bar")!);
+      // openButton は ExternalLink のみ
+      const buttons = container.querySelectorAll(".openButton");
+      expect(buttons.length).toBe(1);
     });
   });
 });
