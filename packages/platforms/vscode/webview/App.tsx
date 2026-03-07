@@ -322,6 +322,10 @@ export function App() {
     postMessage({ type: "openDiffEditor", filePath, before, after });
   }, []);
 
+  const handleOpenFile = useCallback((filePath: string, line?: number) => {
+    postMessage({ type: "openFile", filePath, line });
+  }, []);
+
   // チェックポイントからセッションを Fork する
   const handleForkFromCheckpoint = useCallback(
     (messageId: string) => {
@@ -441,6 +445,7 @@ export function App() {
     fileDiffs: fileChanges.diffs,
     difitAvailable,
     onOpenDiffEditor: handleOpenDiffEditor,
+    onOpenFile: handleOpenFile,
     onSend: handleSend,
     onShellExecute: handleShellExecute,
     isShellMessage: msg.isShellMessage,

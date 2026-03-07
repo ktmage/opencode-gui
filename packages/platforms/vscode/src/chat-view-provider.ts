@@ -306,6 +306,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         await this.platformServices.openDiffEditor(message.filePath, message.before, message.after);
         break;
       }
+      case "openFile": {
+        await this.platformServices.openFile(message.filePath, message.line);
+        break;
+      }
       case "openDiffReview": {
         if (!this.activeSession) {
           console.warn("[openDiffReview] No active session");

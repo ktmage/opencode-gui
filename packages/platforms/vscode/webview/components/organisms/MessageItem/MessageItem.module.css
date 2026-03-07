@@ -244,6 +244,42 @@
   background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+/* --- File path chip --- */
+
+.content :global(a.file-chip) {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: var(--vscode-foreground);
+  background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
+  transition: background-color 0.15s;
+  vertical-align: baseline;
+}
+
+.content :global(a.file-chip:hover) {
+  background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 20%, transparent);
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+
+.content :global(.file-chip-icon) {
+  flex-shrink: 0;
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.content :global(.file-chip-label) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+}
+
 /* --- Reasoning part (Thinking) --- */
 
 .reasoningPart {
