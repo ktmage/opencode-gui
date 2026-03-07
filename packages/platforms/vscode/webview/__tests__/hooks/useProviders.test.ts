@@ -23,12 +23,6 @@ describe("useProviders", () => {
       const { result } = renderHook(() => useProviders());
       expect(result.current.allProvidersData).toBeNull();
     });
-
-    // contextLimit is 0
-    it("contextLimit が 0 であること", () => {
-      const { result } = renderHook(() => useProviders());
-      expect(result.current.contextLimit).toBe(0);
-    });
   });
 
   // handleModelSelect
@@ -47,27 +41,6 @@ describe("useProviders", () => {
       const model = { providerID: "openai", modelID: "gpt-4" };
       act(() => result.current.handleModelSelect(model));
       expect(postMessage).toHaveBeenCalledWith({ type: "setModel", model: "openai/gpt-4" });
-    });
-  });
-
-  // contextLimit derivation
-  context("providers と selectedModel が設定されている場合", () => {
-    // calculates context limit from provider model
-    it("モデルのコンテキストリミットを返すこと", () => {
-      const { result } = renderHook(() => useProviders());
-      const providers = [
-        {
-          id: "openai",
-          models: {
-            "gpt-4": { limit: { context: 128000 } },
-          },
-        },
-      ] as any[];
-      act(() => {
-        result.current.setProviders(providers);
-        result.current.setSelectedModel({ providerID: "openai", modelID: "gpt-4" });
-      });
-      expect(result.current.contextLimit).toBe(128000);
     });
   });
 

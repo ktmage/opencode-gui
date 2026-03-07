@@ -12,12 +12,6 @@ describe("useMessages", () => {
       expect(result.current.messages).toEqual([]);
     });
 
-    // inputTokens is 0
-    it("inputTokens が 0 であること", () => {
-      const { result } = renderHook(() => useMessages());
-      expect(result.current.inputTokens).toBe(0);
-    });
-
     // prefillText is empty
     it("prefillText が空文字であること", () => {
       const { result } = renderHook(() => useMessages());
@@ -33,25 +27,6 @@ describe("useMessages", () => {
       const msg = { info: { id: "m1" }, parts: [] } as unknown as MessageWithParts;
       act(() => result.current.setMessages([msg]));
       expect(result.current.messages).toHaveLength(1);
-    });
-  });
-
-  // inputTokens derivation
-  context("messages に step-finish パートがある場合", () => {
-    // sums input tokens from step-finish parts
-    it("inputTokens がトークン合計値を返すこと", () => {
-      const { result } = renderHook(() => useMessages());
-      const msgs: MessageWithParts[] = [
-        {
-          info: { id: "m1" } as any,
-          parts: [
-            { id: "p1", type: "step-finish", tokens: { input: 100, output: 50 } } as any,
-            { id: "p2", type: "step-finish", tokens: { input: 200, output: 80 } } as any,
-          ],
-        },
-      ];
-      act(() => result.current.setMessages(msgs));
-      expect(result.current.inputTokens).toBe(300);
     });
   });
 
