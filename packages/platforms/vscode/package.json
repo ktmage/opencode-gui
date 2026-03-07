@@ -93,6 +93,7 @@
   "dependencies": {
     "@opencodegui/agent-opencode": "workspace:*",
     "@opencodegui/core": "workspace:*",
+    "diff": "^8.0.0",
     "dompurify": "^3.3.1",
     "highlight.js": "^11.11.1",
     "react-icons": "^5.5.0"

@@ -27,12 +27,19 @@ export const window = {
   onDidChangeActiveTextEditor: vi.fn(() => ({ dispose: vi.fn() })),
   tabGroups: { all: [] as unknown[] },
   createTerminal: vi.fn(() => ({ show: vi.fn(), sendText: vi.fn() })),
+  createWebviewPanel: vi.fn(() => ({
+    webview: { html: "", onDidReceiveMessage: vi.fn() },
+    reveal: vi.fn(),
+    onDidDispose: vi.fn(),
+    dispose: vi.fn(),
+  })),
 };
 
 // --- env ---
 export const env = {
   language: "en",
   clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  openExternal: vi.fn().mockResolvedValue(true),
 };
 
 // --- commands ---
@@ -90,3 +97,10 @@ export const CancellationTokenSource = vi.fn(() => ({
   cancel: vi.fn(),
   dispose: vi.fn(),
 }));
+
+// --- ViewColumn ---
+export const ViewColumn = {
+  One: 1,
+  Two: 2,
+  Three: 3,
+};

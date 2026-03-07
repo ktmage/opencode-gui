@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { OpenCodeAgent } from "@opencodegui/agent-opencode";
 import * as vscode from "vscode";
 import { ChatViewProvider } from "./chat-view-provider";
+import { DiffReviewManager } from "./diff-review-manager";
 import { VscodePlatformServices } from "./vscode-platform-services";
 
 const agent = new OpenCodeAgent();
@@ -40,8 +42,21 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   const platformServices = new VscodePlatformServices();
-  const chatViewProvider = new ChatViewProvider(context.extensionUri, agent, platformServices);
+
+  // PATH 上に difit が存在するか確認する。
+  // 存在しない場合はレビューボタンを非表示にするだけでエラーは出さない。
+  const difitAvailable = await checkDifitAvailable();
+
+  const diffReviewManager = new DiffReviewManager();
+  const chatViewProvider = new ChatViewProvider(
+    context.extensionUri,
+    agent,
+    platformServices,
+    diffReviewManager,
+    difitAvailable,
+  );
   context.subscriptions.push(vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider));
+  context.subscriptions.push(diffReviewManager);
 
   // diff エディタ用の仮想ドキュメントプロバイダー。
   // URI のクエリ部分にエンコードされたコンテンツを返す。
@@ -60,4 +75,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   agent.disconnect();
+}
+
+/** PATH 上に difit コマンドが存在するかチェックする */
+function checkDifitAvailable(): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile("which", ["difit"], (error) => {
+      resolve(!error);
+    });
+  });
 }

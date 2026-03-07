@@ -20,7 +20,6 @@ import type {
   PermissionResponse,
   ProviderInfo,
   QuestionAnswer,
-  SendMessageOptions,
   TodoItem,
 } from "./domain";
 
@@ -124,6 +123,10 @@ export type UIToHostMessage =
   | { type: "copyToClipboard"; text: string }
   | { type: "openFile"; filePath: string; line?: number }
 
+  // --- Diff Review ---
+  | { type: "openDiffReview"; focusFile?: string }
+  | { type: "stopDiffReview" }
+
   // --- Legacy (kept during migration) ---
   | {
       type: "revertToMessage";
@@ -194,4 +197,10 @@ export type HostToUIMessage =
   // --- Platform data ---
   | { type: "openEditors"; files: FileAttachment[] }
   | { type: "activeEditor"; file: FileAttachment | null }
-  | { type: "workspaceFiles"; files: FileAttachment[] };
+  | { type: "workspaceFiles"; files: FileAttachment[] }
+
+  // --- Diff Review ---
+  | { type: "difitAvailable"; available: boolean }
+  | { type: "diffReviewStarted" }
+  | { type: "diffReviewStopped" }
+  | { type: "diffReviewError"; error: string };

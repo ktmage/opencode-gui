@@ -15,6 +15,7 @@ import * as fs from "node:fs/promises";
 import type { IAgent, IPlatformServices } from "@opencodegui/core";
 import * as vscode from "vscode";
 import { ChatViewProvider } from "../chat-view-provider";
+import type { DiffReviewManager } from "../diff-review-manager";
 
 // --- Helper: IAgent のモック ---
 
@@ -89,6 +90,18 @@ function createMockPlatformServices(): {
   };
 }
 
+// --- Helper: DiffReviewManager のモック ---
+
+function createMockDiffReviewManager(): {
+  [K in keyof DiffReviewManager]: ReturnType<typeof vi.fn>;
+} {
+  return {
+    start: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn(),
+    dispose: vi.fn(),
+  };
+}
+
 // --- Helper: WebviewView のモック ---
 
 function createMockWebviewView() {
@@ -136,17 +149,26 @@ function createMockWebviewView() {
 function setupProvider(
   mockAgent: ReturnType<typeof createMockAgent>,
   mockPlatformServices?: ReturnType<typeof createMockPlatformServices>,
+  mockDiffReviewManager?: ReturnType<typeof createMockDiffReviewManager>,
+  difitAvailable = false,
 ) {
   const extensionUri = { fsPath: "/ext" };
   const ps = mockPlatformServices ?? createMockPlatformServices();
-  const provider = new ChatViewProvider(extensionUri as never, mockAgent as never, ps as never);
+  const drm = mockDiffReviewManager ?? createMockDiffReviewManager();
+  const provider = new ChatViewProvider(
+    extensionUri as never,
+    mockAgent as never,
+    ps as never,
+    drm as never,
+    difitAvailable,
+  );
   const mock = createMockWebviewView();
   provider.resolveWebviewView(
     mock.webviewView as never,
     {} as never,
     { isCancellationRequested: false, onCancellationRequested: vi.fn() } as never,
   );
-  return { provider, platformServices: ps, ...mock };
+  return { provider, platformServices: ps, diffReviewManager: drm, ...mock };
 }
 
 describe("ChatViewProvider", () => {
@@ -1070,6 +1092,97 @@ describe("ChatViewProvider", () => {
   });
 
   // ============================================================
+  // openDiffReview / stopDiffReview
+  // ============================================================
+
+  describe("openDiffReview", () => {
+    // should call agent.getSessionDiff and diffReviewManager.start
+    it("agent.getSessionDiff と diffReviewManager.start を呼ぶこと", async () => {
+      const diffs = [{ file: "a.ts", before: "old", after: "new", additions: 1, deletions: 1 }];
+      mockAgent.getSessionDiff.mockResolvedValue(diffs);
+      const drm = createMockDiffReviewManager();
+      const { sendMessage, postMessage } = setupProvider(mockAgent, undefined, drm);
+
+      // activeSession を設定
+      const session = { id: "s1", title: "S1" };
+      mockAgent.createSession.mockResolvedValue(session);
+      mockAgent.listSessions.mockResolvedValue([session]);
+      await sendMessage({ type: "createSession", title: "S1" });
+
+      await sendMessage({ type: "openDiffReview" });
+
+      expect(mockAgent.getSessionDiff).toHaveBeenCalledWith("s1");
+      expect(drm.start).toHaveBeenCalledWith(diffs, undefined);
+      expect(postMessage).toHaveBeenCalledWith({ type: "diffReviewStarted" });
+    });
+
+    // should pass focusFile to diffReviewManager.start
+    it("focusFile を diffReviewManager.start に渡すこと", async () => {
+      const diffs = [{ file: "a.ts", before: "old", after: "new", additions: 1, deletions: 1 }];
+      mockAgent.getSessionDiff.mockResolvedValue(diffs);
+      const drm = createMockDiffReviewManager();
+      const { sendMessage } = setupProvider(mockAgent, undefined, drm);
+
+      const session = { id: "s1", title: "S1" };
+      mockAgent.createSession.mockResolvedValue(session);
+      mockAgent.listSessions.mockResolvedValue([session]);
+      await sendMessage({ type: "createSession", title: "S1" });
+
+      await sendMessage({ type: "openDiffReview", focusFile: "a.ts" });
+
+      expect(drm.start).toHaveBeenCalledWith(diffs, "a.ts");
+    });
+
+    // should not call start when no activeSession
+    it("activeSession がない場合は start を呼ばないこと", async () => {
+      const drm = createMockDiffReviewManager();
+      const { sendMessage } = setupProvider(mockAgent, undefined, drm);
+
+      await sendMessage({ type: "openDiffReview" });
+
+      expect(mockAgent.getSessionDiff).not.toHaveBeenCalled();
+      expect(drm.start).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("stopDiffReview", () => {
+    // should call diffReviewManager.stop
+    it("diffReviewManager.stop を呼ぶこと", async () => {
+      const drm = createMockDiffReviewManager();
+      const { sendMessage, postMessage } = setupProvider(mockAgent, undefined, drm);
+
+      await sendMessage({ type: "stopDiffReview" });
+
+      expect(drm.stop).toHaveBeenCalled();
+      expect(postMessage).toHaveBeenCalledWith({ type: "diffReviewStopped" });
+    });
+  });
+
+  // ============================================================
+  // difitAvailable on ready
+  // ============================================================
+
+  describe("difitAvailable", () => {
+    // should send difitAvailable on ready
+    it("ready 時に difitAvailable メッセージを送信すること", async () => {
+      const { postMessage, sendMessage } = setupProvider(mockAgent, undefined, undefined, true);
+
+      await sendMessage({ type: "ready" });
+
+      expect(postMessage).toHaveBeenCalledWith({ type: "difitAvailable", available: true });
+    });
+
+    // should send false when difit is not available
+    it("difit 未インストール時は available=false を送信すること", async () => {
+      const { postMessage, sendMessage } = setupProvider(mockAgent, undefined, undefined, false);
+
+      await sendMessage({ type: "ready" });
+
+      expect(postMessage).toHaveBeenCalledWith({ type: "difitAvailable", available: false });
+    });
+  });
+
+  // ============================================================
   // postMessage の null safety
   // ============================================================
 
@@ -1081,6 +1194,8 @@ describe("ChatViewProvider", () => {
         extensionUri as never,
         mockAgent as never,
         createMockPlatformServices() as never,
+        createMockDiffReviewManager() as never,
+        false,
       );
 
       // view が undefined のまま postMessage を呼ぶ（内部的に）
