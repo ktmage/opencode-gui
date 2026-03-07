@@ -8,6 +8,8 @@ const defaultProps = {
   onClose: vi.fn(),
   localeSetting: "auto" as const,
   onLocaleSettingChange: vi.fn(),
+  soundSettings: {} as Record<string, unknown>,
+  onSoundSettingChange: vi.fn(),
 };
 
 describe("ToolConfigPanel", () => {

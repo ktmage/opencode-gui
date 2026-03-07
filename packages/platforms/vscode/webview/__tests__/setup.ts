@@ -15,6 +15,25 @@ globalThis.context = describe;
 
 Element.prototype.scrollIntoView = vi.fn();
 
+// --- AudioContext モック ---
+// jsdom には Web Audio API が存在しないため、テスト用のモックを提供する。
+
+globalThis.AudioContext = vi.fn(function (this: Record<string, unknown>) {
+  this.currentTime = 0;
+  this.destination = {};
+  this.createOscillator = vi.fn(() => ({
+    type: "sine",
+    frequency: { value: 0 },
+    connect: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+  }));
+  this.createGain = vi.fn(() => ({
+    gain: { value: 0 },
+    connect: vi.fn(),
+  }));
+}) as unknown as typeof AudioContext;
+
 // --- vscode-api モック ---
 // acquireVsCodeApi はグローバル関数として宣言されており、webview/vscode-api.ts のモジュールスコープで呼ばれる。
 // モジュール全体をモックにして postMessage / getPersistedState / setPersistedState をスパイ化する。
