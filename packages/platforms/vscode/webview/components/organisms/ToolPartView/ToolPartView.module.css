@@ -106,11 +106,24 @@
 
 .titleLink {
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .titleLink:hover {
   color: var(--vscode-textLink-foreground);
   text-decoration: underline;
+}
+
+.titleLinkIcon {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.titleLink:hover .titleLinkIcon {
+  opacity: 1;
 }
 
 .chevron {

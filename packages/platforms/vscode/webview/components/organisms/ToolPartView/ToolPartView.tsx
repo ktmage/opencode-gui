@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   EditActionIcon,
   ErrorCircleIcon,
+  ExternalLinkIcon,
   ReadActionIcon,
   RunActionIcon,
   SearchActionIcon,
@@ -164,6 +165,7 @@ export function ToolPartView({ part }: Props) {
               // biome-ignore lint/a11y/noStaticElementInteractions: ツールタイトルのファイルパスリンク
               <span className={styles.titleLink} onClick={handleTitleClick}>
                 {displayTitle}
+                <ExternalLinkIcon className={styles.titleLinkIcon} />
               </span>
             ) : (
               displayTitle

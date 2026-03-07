@@ -244,6 +244,28 @@
   background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+/* --- File path link icon --- */
+
+.content :global(a[data-file-path]) {
+  text-decoration: none;
+  color: var(--vscode-textLink-foreground);
+}
+
+.content :global(a[data-file-path]:hover) {
+  text-decoration: underline;
+}
+
+.content :global(.file-link-icon) {
+  margin-left: 2px;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.content :global(a[data-file-path]:hover) :global(.file-link-icon) {
+  opacity: 1;
+}
+
 /* --- Reasoning part (Thinking) --- */
 
 .reasoningPart {
