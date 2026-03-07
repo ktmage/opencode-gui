@@ -16,9 +16,21 @@ export interface IBridge {
   setPersistedState(state: UIPersistedState): void;
 }
 
+export type SoundEventType = "responseComplete" | "permissionRequest" | "error";
+
+export type SoundEventSetting = {
+  enabled?: boolean;
+  volume?: number;
+};
+
+export type SoundSettings = {
+  [K in SoundEventType]?: SoundEventSetting;
+};
+
 export type UIPersistedState = {
   localeSetting?: "auto" | "en" | "ja";
   inputHistory?: string[];
+  soundSettings?: SoundSettings;
 };
 
 /** Platform-specific services */
