@@ -196,9 +196,7 @@ export function App() {
           // 初回: まだプライマリエージェントが未選択なら最初の primary を選ぶ
           setSelectedPrimaryAgent((prev) => {
             if (prev) return prev;
-            const first = data.agents.find(
-              (a: AgentInfo) => a.mode === "primary" || a.mode === "all",
-            );
+            const first = data.agents.find((a: AgentInfo) => a.mode === "primary" || a.mode === "all");
             return first?.name ?? null;
           });
           break;

@@ -254,7 +254,16 @@ export function InputArea({
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }, [text, attachedFiles, onSend, onShellExecute, selectedAgent?.name, isShellMode, inputHistory, selectedPrimaryAgent]);
+  }, [
+    text,
+    attachedFiles,
+    onSend,
+    onShellExecute,
+    selectedAgent?.name,
+    isShellMode,
+    inputHistory,
+    selectedPrimaryAgent,
+  ]);
 
   // # トリガーのファイル候補
   const hashFiles = hashQuery
@@ -614,11 +623,7 @@ export function InputArea({
               selectedModel={selectedModel}
               onSelect={onModelSelect}
             />
-            <AgentSelector
-              agents={agents}
-              selectedAgent={selectedPrimaryAgent}
-              onSelect={onPrimaryAgentSelect}
-            />
+            <AgentSelector agents={agents} selectedAgent={selectedPrimaryAgent} onSelect={onPrimaryAgentSelect} />
             <Popover
               trigger={({ open, toggle }) => (
                 <IconButton variant="muted" onClick={toggle} title={t["input.settings"]}>
