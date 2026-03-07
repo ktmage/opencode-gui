@@ -123,6 +123,10 @@ export type UIToHostMessage =
     }
   | { type: "copyToClipboard"; text: string }
 
+  // --- Diff Review ---
+  | { type: "openDiffReview"; focusFile?: string }
+  | { type: "stopDiffReview" }
+
   // --- Legacy (kept during migration) ---
   | {
       type: "revertToMessage";
@@ -193,4 +197,10 @@ export type HostToUIMessage =
   // --- Platform data ---
   | { type: "openEditors"; files: FileAttachment[] }
   | { type: "activeEditor"; file: FileAttachment | null }
-  | { type: "workspaceFiles"; files: FileAttachment[] };
+  | { type: "workspaceFiles"; files: FileAttachment[] }
+
+  // --- Diff Review ---
+  | { type: "difitAvailable"; available: boolean }
+  | { type: "diffReviewStarted" }
+  | { type: "diffReviewStopped" }
+  | { type: "diffReviewError"; error: string };

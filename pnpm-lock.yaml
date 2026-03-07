@@ -42,6 +42,9 @@ importers:
       '@opencodegui/core':
         specifier: workspace:*
         version: link:../../core
+      diff:
+        specifier: ^8.0.0
+        version: 8.0.3
       dompurify:
         specifier: ^3.3.1
         version: 3.3.1
@@ -1175,6 +1178,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  diff@8.0.3:
+    resolution: {integrity: sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ==}
+    engines: {node: '>=0.3.1'}
 
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
@@ -3313,6 +3320,8 @@ snapshots:
 
   detect-libc@2.1.2:
     optional: true
+
+  diff@8.0.3: {}
 
   dom-accessibility-api@0.5.16: {}
 
