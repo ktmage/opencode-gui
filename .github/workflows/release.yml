@@ -32,11 +32,11 @@ jobs:
         run: pnpm test:all
 
       - name: Package extension
-        run: pnpm --filter @opencodegui/vscode run package
+        run: pnpm --filter opencodegui run package
         working-directory: .
 
       - name: Publish to Marketplace
-        run: pnpm --filter @opencodegui/vscode run publish
+        run: pnpm --filter opencodegui run publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 

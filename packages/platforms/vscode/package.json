@@ -1,5 +1,5 @@
 {
-  "name": "@opencodegui/vscode",
+  "name": "opencodegui",
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.3.0",
@@ -57,7 +57,7 @@
     }
   },
   "scripts": {
-    "build": "npm run build:ext && npm run build:webview",
+    "build": "node esbuild.mjs && vite build",
     "build:ext": "node esbuild.mjs",
     "build:webview": "vite build",
     "watch:ext": "node esbuild.mjs --watch",
@@ -67,8 +67,8 @@
     "test:ext:watch": "vitest --config vitest.config.ext.ts",
     "test:all": "vitest run --config vitest.config.ts && vitest run --config vitest.config.ext.ts",
     "test:watch": "vitest --config vitest.config.ts",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
