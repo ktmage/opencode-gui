@@ -2,7 +2,7 @@ import type { AgentEvent, SoundEventSetting, SoundEventType, SoundSettings } fro
 import { useCallback, useRef, useState } from "react";
 import { getPersistedState, setPersistedState } from "../vscode-api";
 
-const DEFAULT_SETTING: Required<SoundEventSetting> = { enabled: true, volume: 0.5 };
+const DEFAULT_SETTING: Required<SoundEventSetting> = { enabled: true, volume: 0.2 };
 
 /** イベントごとの設定を取得する。未設定時はデフォルト値を返す */
 function getEffectiveSetting(settings: SoundSettings, eventType: SoundEventType): Required<SoundEventSetting> {

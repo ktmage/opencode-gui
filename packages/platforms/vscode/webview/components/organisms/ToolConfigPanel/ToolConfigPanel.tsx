@@ -79,7 +79,7 @@ export function ToolConfigPanel({
                 error: t["config.soundError"],
               } as const;
               const enabled = soundSettings[eventType]?.enabled ?? true;
-              const volume = soundSettings[eventType]?.volume ?? 0.5;
+              const volume = soundSettings[eventType]?.volume ?? 0.2;
               return (
                 <div key={eventType} className={styles.soundItem}>
                   <label className={styles.toggle}>
