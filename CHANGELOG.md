@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-03-08
+
+### Added
+
+- Sound notification on question asked event with locale keys for all languages (#88)
+
+### Fixed
+
+- Sub-agent messages leaking into parent session (#86)
+
 ## [0.4.0] - 2026-03-08
 
 ### Added
@@ -101,7 +111,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Todo display
 - i18n support (English, Japanese)
 
-[Unreleased]: https://github.com/ktmage/opencode-gui/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ktmage/opencode-gui/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/ktmage/opencode-gui/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ktmage/opencode-gui/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ktmage/opencode-gui/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ktmage/opencode-gui/compare/v0.1.0...v0.2.0
