@@ -150,6 +150,26 @@ describe("extension", () => {
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("opencode"));
       expect(vscode.window.registerWebviewViewProvider).not.toHaveBeenCalled();
     });
+
+    it("汎用 OpenCodeError を受けたらエラー通知 + ログ出力し webview を登録しない", async () => {
+      const extensionModule = await importExtension();
+      const { OpenCodeError } = await import("../errors");
+      const original = new Error("port already in use");
+      mockConnect.mockRejectedValueOnce(new OpenCodeError(original));
+
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showErrorMessage).toHaveBeenCalled();
+      // OpenCodeError をそのまま console.error に渡す（cause は error 自身に含まれる）。
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.any(Error));
+      expect(consoleErrorSpy.mock.calls[0]?.[0]).toMatchObject({ cause: original });
+      expect(vscode.window.registerWebviewViewProvider).not.toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   // ============================================================

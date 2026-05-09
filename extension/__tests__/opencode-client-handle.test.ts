@@ -26,12 +26,7 @@ vi.mock("@opencode-ai/sdk/v2", () => ({
 }));
 
 import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk/v2";
-import {
-  OpenCodeBinaryNotFoundError,
-  OpenCodeClientNotConnectedError,
-  OpenCodeError,
-  OpenCodeServerStartError,
-} from "../errors";
+import { OpenCodeBinaryNotFoundError, OpenCodeClientNotConnectedError, OpenCodeError } from "../errors";
 import { OpenCodeClientHandle } from "../opencode-client-handle";
 
 describe("OpenCodeClientHandle", () => {
@@ -78,15 +73,16 @@ describe("OpenCodeClientHandle", () => {
       await expect(handle.connect()).rejects.toBeInstanceOf(OpenCodeBinaryNotFoundError);
     });
 
-    it("ENOENT 以外のエラーは OpenCodeServerStartError でラップされ、cause に元エラーを保持する", async () => {
+    it("ENOENT 以外のエラーは OpenCodeError でラップされ、cause に元エラーを保持する", async () => {
       const original = new Error("port already in use");
       vi.mocked(createOpencodeServer).mockRejectedValueOnce(original);
 
       const rejection = await handle.connect().catch((e: unknown) => e);
 
-      expect(rejection).toBeInstanceOf(OpenCodeServerStartError);
       expect(rejection).toBeInstanceOf(OpenCodeError);
-      expect((rejection as OpenCodeServerStartError).cause).toBe(original);
+      // ラップ後はサブクラスではなく基底の OpenCodeError として投げられる。
+      expect(rejection).not.toBeInstanceOf(OpenCodeBinaryNotFoundError);
+      expect((rejection as OpenCodeError).cause).toBe(original);
     });
 
     it("OpenCodeBinaryNotFoundError も OpenCodeError として識別できる（基底クラスでまとめて catch 可能）", async () => {

@@ -1,4 +1,5 @@
 {
   "OpenCodeGUI requires an open workspace folder.": "OpenCodeGUI を使用するにはワークスペースフォルダーを開いてください。",
-  "OpenCodeGUI: \"opencode\" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode": "OpenCodeGUI: \"opencode\" コマンドが見つかりません。先に OpenCode をインストールしてください: https://github.com/anomalyco/opencode"
+  "OpenCodeGUI: \"opencode\" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode": "OpenCodeGUI: \"opencode\" コマンドが見つかりません。先に OpenCode をインストールしてください: https://github.com/anomalyco/opencode",
+  "OpenCodeGUI: An unexpected error occurred while starting OpenCode. See the developer log for details.": "OpenCodeGUI: OpenCode の起動中に予期しないエラーが発生しました。詳細は開発者ログを参照してください。"
 }

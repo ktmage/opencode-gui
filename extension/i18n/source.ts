@@ -9,4 +9,8 @@ export const messages = {
     opencodeNotFound:
       'OpenCodeGUI: "opencode" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode',
   },
+  errors: {
+    unexpected:
+      "OpenCodeGUI: An unexpected error occurred while starting OpenCode. See the developer log for details.",
+  },
 } as const;

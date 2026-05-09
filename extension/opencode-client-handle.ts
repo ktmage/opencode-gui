@@ -1,6 +1,6 @@
 import { createOpencodeClient, createOpencodeServer, type OpencodeClient } from "@opencode-ai/sdk/v2";
 import type { AgentEvent, Disposable } from "@shared";
-import { OpenCodeBinaryNotFoundError, OpenCodeClientNotConnectedError, OpenCodeServerStartError } from "./errors";
+import { OpenCodeBinaryNotFoundError, OpenCodeClientNotConnectedError, OpenCodeError } from "./errors";
 
 /** OpenCode から受信したエージェントイベントを処理するコールバック。 */
 type EventHandler = (event: AgentEvent) => void;
@@ -28,7 +28,7 @@ export class OpenCodeClientHandle {
    * OpenCode サーバーを起動し、SDK クライアントとイベント購読を初期化する。
    *
    * @throws {@link OpenCodeBinaryNotFoundError} `opencode` バイナリが PATH 上に存在しない場合。
-   * @throws {@link OpenCodeServerStartError} それ以外の理由でサーバー起動に失敗した場合。
+   * @throws {@link OpenCodeError} それ以外の理由でサーバー起動に失敗した場合。
    */
   async connect(): Promise<void> {
     let server: { url: string; close(): void };
@@ -38,7 +38,7 @@ export class OpenCodeClientHandle {
       if (isBinaryNotFoundError(error)) {
         throw new OpenCodeBinaryNotFoundError(error);
       }
-      throw new OpenCodeServerStartError(error);
+      throw new OpenCodeError(error);
     }
     this.server = server;
     this.client = createOpencodeClient({ baseUrl: server.url });

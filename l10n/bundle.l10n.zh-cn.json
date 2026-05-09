@@ -1,4 +1,5 @@
 {
   "OpenCodeGUI requires an open workspace folder.": "OpenCodeGUI 需要打开工作区文件夹。",
-  "OpenCodeGUI: \"opencode\" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode": "OpenCodeGUI：未找到 \"opencode\" 命令。请先安装 OpenCode：https://github.com/anomalyco/opencode"
+  "OpenCodeGUI: \"opencode\" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode": "OpenCodeGUI：未找到 \"opencode\" 命令。请先安装 OpenCode：https://github.com/anomalyco/opencode",
+  "OpenCodeGUI: An unexpected error occurred while starting OpenCode. See the developer log for details.": "OpenCodeGUI：启动 OpenCode 时发生意外错误。详情请查看开发者日志。"
 }

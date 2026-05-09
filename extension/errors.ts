@@ -4,16 +4,14 @@
  */
 
 /**
- * OpenCode 関連エラーの抽象基底クラス。
- * 直接インスタンス化はできず、必ず具体的な失敗モードを表すサブクラスを継承して使う。
+ * OpenCode 関連エラーの汎用クラス兼基底クラス。
+ * 特定の失敗モードに分類されない OpenCode 由来の失敗を表すと同時に、
+ * `OpenCodeBinaryNotFoundError` などのサブクラスの基底としても機能する。
  * 呼び出し側は `instanceof OpenCodeError` で OpenCode 由来の失敗をまとめて受けられる。
  */
-export abstract class OpenCodeError extends Error {
-  protected constructor(
-    message: string,
-    public readonly cause?: unknown,
-  ) {
-    super(message);
+export class OpenCodeError extends Error {
+  constructor(public readonly cause?: unknown) {
+    super("OpenCode で予期しないエラーが発生しました。");
     this.name = "OpenCodeError";
   }
 }
@@ -21,7 +19,8 @@ export abstract class OpenCodeError extends Error {
 /** OpenCode クライアントが未接続の状態で要求された場合のエラー。 */
 export class OpenCodeClientNotConnectedError extends OpenCodeError {
   constructor() {
-    super("OpenCode クライアントが接続されていません。先に connect() を呼び出してください。");
+    super();
+    this.message = "OpenCode クライアントが接続されていません。先に connect() を呼び出してください。";
     this.name = "OpenCodeClientNotConnectedError";
   }
 }
@@ -33,18 +32,8 @@ export class OpenCodeClientNotConnectedError extends OpenCodeError {
  */
 export class OpenCodeBinaryNotFoundError extends OpenCodeError {
   constructor(cause: unknown) {
-    super('"opencode" コマンドが PATH 上に見つかりませんでした。OpenCode をインストールしてください。', cause);
+    super(cause);
+    this.message = '"opencode" コマンドが PATH 上に見つかりませんでした。OpenCode をインストールしてください。';
     this.name = "OpenCodeBinaryNotFoundError";
-  }
-}
-
-/**
- * OpenCode サーバーの起動に失敗した（ENOENT 以外の原因による）場合のエラー。
- * ポート衝突や SDK 側の予期せぬ失敗など、特定の失敗モードに分類されない起動失敗を表す。
- */
-export class OpenCodeServerStartError extends OpenCodeError {
-  constructor(cause: unknown) {
-    super("OpenCode サーバーの起動に失敗しました。", cause);
-    this.name = "OpenCodeServerStartError";
   }
 }
