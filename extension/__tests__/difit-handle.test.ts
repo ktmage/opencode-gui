@@ -1,6 +1,7 @@
 /**
- * DiffReviewManager のユニットテスト。
- * child_process.spawn をモックし、difit プロセスの起動・URL 検出・停止を検証する。
+ * DifitHandle のユニットテスト。
+ * child_process.spawn / execFile をモックし、
+ * difit の存在確認 (init/isAvailable) と difit プロセスの起動・URL 検出・停止を検証する。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,10 +10,10 @@ vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { EventEmitter, Readable, Writable } from "node:stream";
 import * as vscode from "vscode";
-import { DiffReviewManager, fileDiffsToUnifiedDiff } from "../diff-review-manager";
+import { DifitHandle, fileDiffsToUnifiedDiff } from "../difit-handle";
 
 /** stdin / stdout / stderr を持つ擬似 ChildProcess を生成する */
 function createMockProcess() {
@@ -35,16 +36,46 @@ function createMockProcess() {
   return proc;
 }
 
-describe("DiffReviewManager", () => {
-  let manager: DiffReviewManager;
+describe("DifitHandle", () => {
+  let handle: DifitHandle;
 
   beforeEach(() => {
-    manager = new DiffReviewManager();
+    handle = new DifitHandle();
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    manager.dispose();
+    handle.dispose();
+  });
+
+  // ============================================================
+  // init() / isAvailable()
+  // ============================================================
+
+  describe("init() / isAvailable()", () => {
+    it("which difit が成功すれば isAvailable は true", async () => {
+      vi.mocked(execFile).mockImplementationOnce(((_cmd: string, _args: string[], cb: (e: unknown) => void) => {
+        cb(null);
+      }) as never);
+
+      await handle.init();
+
+      expect(handle.isAvailable()).toBe(true);
+    });
+
+    it("which difit が失敗すれば isAvailable は false", async () => {
+      vi.mocked(execFile).mockImplementationOnce(((_cmd: string, _args: string[], cb: (e: unknown) => void) => {
+        cb(new Error("not found"));
+      }) as never);
+
+      await handle.init();
+
+      expect(handle.isAvailable()).toBe(false);
+    });
+
+    it("init() を呼ばずに isAvailable を呼んでも false（フェイルセーフ）", () => {
+      expect(handle.isAvailable()).toBe(false);
+    });
   });
 
   // ============================================================
@@ -57,7 +88,7 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start([
+      const startPromise = handle.start([
         { file: "src/index.ts", before: "old", after: "new", additions: 1, deletions: 1 },
       ]);
 
@@ -75,7 +106,7 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start(
+      const startPromise = handle.start(
         [{ file: "src/index.ts", before: "old", after: "new", additions: 1, deletions: 1 }],
         "src/index.ts",
       );
@@ -92,7 +123,7 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start([
+      const startPromise = handle.start([
         { file: "src/index.ts", before: "old", after: "new", additions: 1, deletions: 1 },
       ]);
 
@@ -108,7 +139,7 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start([
+      const startPromise = handle.start([
         { file: "src/index.ts", before: "old", after: "new", additions: 1, deletions: 1 },
       ]);
 
@@ -127,11 +158,11 @@ describe("DiffReviewManager", () => {
         .mockReturnValueOnce(proc1 as never)
         .mockReturnValueOnce(proc2 as never);
 
-      const start1 = manager.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
+      const start1 = handle.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
       proc1.stdout.push("http://127.0.0.1:4966\n");
       await start1;
 
-      const start2 = manager.start([{ file: "b.ts", before: "", after: "y", additions: 1, deletions: 0 }]);
+      const start2 = handle.start([{ file: "b.ts", before: "", after: "y", additions: 1, deletions: 0 }]);
       proc2.stdout.push("http://127.0.0.1:4967\n");
       await start2;
 
@@ -143,7 +174,7 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
+      const startPromise = handle.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
 
       mockProc.emit("close", 1);
 
@@ -155,7 +186,7 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
+      const startPromise = handle.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
 
       mockProc.emit("error", new Error("ENOENT"));
 
@@ -173,18 +204,18 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
+      const startPromise = handle.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
       mockProc.stdout.push("http://127.0.0.1:4966\n");
       await startPromise;
 
-      manager.stop();
+      handle.stop();
 
       expect(mockProc.kill).toHaveBeenCalled();
     });
 
     // should not throw when no process is running
     it("プロセスが起動していない場合でもエラーにならないこと", () => {
-      expect(() => manager.stop()).not.toThrow();
+      expect(() => handle.stop()).not.toThrow();
     });
   });
 
@@ -198,11 +229,11 @@ describe("DiffReviewManager", () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
-      const startPromise = manager.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
+      const startPromise = handle.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
       mockProc.stdout.push("http://127.0.0.1:4966\n");
       await startPromise;
 
-      manager.dispose();
+      handle.dispose();
 
       expect(mockProc.kill).toHaveBeenCalled();
     });

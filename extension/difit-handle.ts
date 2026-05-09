@@ -1,17 +1,39 @@
 import type { ChildProcess } from "node:child_process";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import type { FileDiff } from "@shared";
 import { createTwoFilesPatch } from "diff";
 import * as vscode from "vscode";
 
 /**
- * difit プロセスのライフサイクル管理を担当する。
- * ワークスペースごとに 1 つの difit プロセスを保持し、
- * システムブラウザで差分レビュー画面を開く。
+ * difit という外部プロセスとのやり取りを集約するハンドル。
+ * `OpenCodeClientHandle` と同じく「外部プロセスの存在確認 + ライフサイクル管理」を 1 クラスに閉じる。
+ *
+ * 使い方:
+ * 1. `init()` で PATH 上の存在を確認する（結果はキャッシュされる）
+ * 2. `isAvailable()` で利用可否を取得する
+ * 3. `start()` でレビュー画面を起動、`stop()` / `dispose()` で停止
  */
-export class DiffReviewManager implements vscode.Disposable {
+export class DifitHandle implements vscode.Disposable {
   private process: ChildProcess | null = null;
   private serverUrl: string | null = null;
+  private available: boolean | undefined;
+
+  /** PATH 上に difit コマンドが存在するか確認する。結果は内部にキャッシュされる。 */
+  async init(): Promise<void> {
+    this.available = await new Promise<boolean>((resolve) => {
+      execFile("which", ["difit"], (error) => {
+        resolve(!error);
+      });
+    });
+  }
+
+  /**
+   * `init()` で確認した利用可否を返す。
+   * `init()` 未実行の場合は `false` を返す（フェイルセーフ）。
+   */
+  isAvailable(): boolean {
+    return this.available === true;
+  }
 
   /**
    * difit プロセスを起動しシステムブラウザでレビュー画面を開く。

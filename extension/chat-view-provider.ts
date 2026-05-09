@@ -16,7 +16,7 @@ import type {
   UIToHostMessage,
 } from "@shared";
 import * as vscode from "vscode";
-import type { DiffReviewManager } from "./diff-review-manager";
+import type { DifitHandle } from "./difit-handle";
 import type { OpenCodeClientHandle } from "./opencode-client-handle";
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -31,8 +31,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri: vscode.Uri,
     private readonly openCodeClientHandle: OpenCodeClientHandle,
     private readonly workspaceFolder: string,
-    private readonly diffReviewManager: DiffReviewManager,
-    private readonly difitAvailable: boolean,
+    private readonly difitHandle: DifitHandle,
   ) {}
 
   resolveWebviewView(
@@ -112,7 +111,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         // 初期アクティブエディタを送信する
         this.postMessage({ type: "activeEditor", file: this.getActiveEditorFile(vscode.window.activeTextEditor) });
         // difit の利用可否を Webview に通知する
-        this.postMessage({ type: "difitAvailable", available: this.difitAvailable });
+        this.postMessage({ type: "difitAvailable", available: this.difitHandle.isAvailable() });
         break;
       }
       case "sendMessage": {
@@ -378,7 +377,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           if (diffs.length === 0) {
             break;
           }
-          await this.diffReviewManager.start(diffs, message.focusFile);
+          await this.difitHandle.start(diffs, message.focusFile);
           this.postMessage({ type: "diffReviewStarted" });
         } catch (e) {
           const errorMsg = e instanceof Error ? e.message : String(e);
@@ -388,7 +387,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "stopDiffReview": {
-        this.diffReviewManager.stop();
+        this.difitHandle.stop();
         this.postMessage({ type: "diffReviewStopped" });
         break;
       }

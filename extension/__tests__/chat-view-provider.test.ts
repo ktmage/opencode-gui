@@ -14,7 +14,7 @@ vi.mock("node:fs/promises", () => ({
 import * as fs from "node:fs/promises";
 import * as vscode from "vscode";
 import { ChatViewProvider } from "../chat-view-provider";
-import type { DiffReviewManager } from "../diff-review-manager";
+import type { DifitHandle } from "../difit-handle";
 import type { OpenCodeClientHandle } from "../opencode-client-handle";
 
 // --- Helper: OpenCodeClientHandle のモック ---
@@ -173,12 +173,14 @@ function createMockAgent(): MockOpenCodeClientHandle {
   return api as MockOpenCodeClientHandle;
 }
 
-// --- Helper: DiffReviewManager のモック ---
+// --- Helper: DifitHandle のモック ---
 
-function createMockDiffReviewManager(): {
-  [K in keyof DiffReviewManager]: ReturnType<typeof vi.fn>;
+function createMockDifitHandle(difitAvailable = false): {
+  [K in keyof DifitHandle]: ReturnType<typeof vi.fn>;
 } {
   return {
+    init: vi.fn().mockResolvedValue(undefined),
+    isAvailable: vi.fn().mockReturnValue(difitAvailable),
     start: vi.fn().mockResolvedValue(undefined),
     stop: vi.fn(),
     dispose: vi.fn(),
@@ -231,25 +233,19 @@ function createMockWebviewView() {
 
 function setupProvider(
   mockAgent: ReturnType<typeof createMockAgent>,
-  mockDiffReviewManager?: ReturnType<typeof createMockDiffReviewManager>,
+  mockDifitHandle?: ReturnType<typeof createMockDifitHandle>,
   difitAvailable = false,
 ) {
   const extensionUri = { fsPath: "/extension" };
-  const drm = mockDiffReviewManager ?? createMockDiffReviewManager();
-  const provider = new ChatViewProvider(
-    extensionUri as never,
-    mockAgent as never,
-    "/workspace",
-    drm as never,
-    difitAvailable,
-  );
+  const dh = mockDifitHandle ?? createMockDifitHandle(difitAvailable);
+  const provider = new ChatViewProvider(extensionUri as never, mockAgent as never, "/workspace", dh as never);
   const mock = createMockWebviewView();
   provider.resolveWebviewView(
     mock.webviewView as never,
     {} as never,
     { isCancellationRequested: false, onCancellationRequested: vi.fn() } as never,
   );
-  return { provider, diffReviewManager: drm, ...mock };
+  return { provider, difitHandle: dh, ...mock };
 }
 
 describe("ChatViewProvider", () => {
@@ -1215,8 +1211,8 @@ describe("ChatViewProvider", () => {
     it("agent.getSessionDiff と diffReviewManager.start を呼ぶこと", async () => {
       const diffs = [{ file: "a.ts", before: "old", after: "new", additions: 1, deletions: 1 }];
       mockAgent.getSessionDiff.mockResolvedValue(diffs);
-      const drm = createMockDiffReviewManager();
-      const { sendMessage, postMessage } = setupProvider(mockAgent, drm);
+      const dh = createMockDifitHandle();
+      const { sendMessage, postMessage } = setupProvider(mockAgent, dh);
 
       // activeSession を設定
       const session = { id: "s1", title: "S1" };
@@ -1227,7 +1223,7 @@ describe("ChatViewProvider", () => {
       await sendMessage({ type: "openDiffReview" });
 
       expect(mockAgent.getSessionDiff).toHaveBeenCalledWith("s1");
-      expect(drm.start).toHaveBeenCalledWith(diffs, undefined);
+      expect(dh.start).toHaveBeenCalledWith(diffs, undefined);
       expect(postMessage).toHaveBeenCalledWith({ type: "diffReviewStarted" });
     });
 
@@ -1235,8 +1231,8 @@ describe("ChatViewProvider", () => {
     it("focusFile を diffReviewManager.start に渡すこと", async () => {
       const diffs = [{ file: "a.ts", before: "old", after: "new", additions: 1, deletions: 1 }];
       mockAgent.getSessionDiff.mockResolvedValue(diffs);
-      const drm = createMockDiffReviewManager();
-      const { sendMessage } = setupProvider(mockAgent, drm);
+      const dh = createMockDifitHandle();
+      const { sendMessage } = setupProvider(mockAgent, dh);
 
       const session = { id: "s1", title: "S1" };
       mockAgent.createSession.mockResolvedValue(session);
@@ -1245,30 +1241,30 @@ describe("ChatViewProvider", () => {
 
       await sendMessage({ type: "openDiffReview", focusFile: "a.ts" });
 
-      expect(drm.start).toHaveBeenCalledWith(diffs, "a.ts");
+      expect(dh.start).toHaveBeenCalledWith(diffs, "a.ts");
     });
 
     // should not call start when no activeSession
     it("activeSession がない場合は start を呼ばないこと", async () => {
-      const drm = createMockDiffReviewManager();
-      const { sendMessage } = setupProvider(mockAgent, drm);
+      const dh = createMockDifitHandle();
+      const { sendMessage } = setupProvider(mockAgent, dh);
 
       await sendMessage({ type: "openDiffReview" });
 
       expect(mockAgent.getSessionDiff).not.toHaveBeenCalled();
-      expect(drm.start).not.toHaveBeenCalled();
+      expect(dh.start).not.toHaveBeenCalled();
     });
   });
 
   describe("stopDiffReview", () => {
     // should call diffReviewManager.stop
     it("diffReviewManager.stop を呼ぶこと", async () => {
-      const drm = createMockDiffReviewManager();
-      const { sendMessage, postMessage } = setupProvider(mockAgent, drm);
+      const dh = createMockDifitHandle();
+      const { sendMessage, postMessage } = setupProvider(mockAgent, dh);
 
       await sendMessage({ type: "stopDiffReview" });
 
-      expect(drm.stop).toHaveBeenCalled();
+      expect(dh.stop).toHaveBeenCalled();
       expect(postMessage).toHaveBeenCalledWith({ type: "diffReviewStopped" });
     });
   });
@@ -1309,8 +1305,7 @@ describe("ChatViewProvider", () => {
         extensionUri as never,
         mockAgent as never,
         "/workspace",
-        createMockDiffReviewManager() as never,
-        false,
+        createMockDifitHandle() as never,
       );
 
       // view が undefined のまま postMessage を呼ぶ（内部的に）
