@@ -228,9 +228,9 @@ export function getFileIcon(fileName: string): FC<IconProps> {
   if (exact) return exact;
 
   // 2. 拡張子マッチ（最長一致）
-  for (const ext of sortedExtensions) {
-    if (lower.endsWith(ext)) {
-      return extensionMap[ext];
+  for (const fileExtension of sortedExtensions) {
+    if (lower.endsWith(fileExtension)) {
+      return extensionMap[fileExtension];
     }
   }
 

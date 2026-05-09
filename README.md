@@ -101,7 +101,7 @@ npm run build
 npm run build
 
 # Extension only
-npm run build:ext
+npm run build:extension
 
 # Webview only
 npm run build:webview
@@ -113,7 +113,7 @@ Open two terminals and run each:
 
 ```sh
 # Terminal 1: Extension watch
-npm run watch:ext
+npm run watch:extension
 
 # Terminal 2: Webview watch
 npm run watch:webview
@@ -259,7 +259,7 @@ npm run build
 npm run build
 
 # Extension のみ
-npm run build:ext
+npm run build:extension
 
 # Webview のみ
 npm run build:webview
@@ -271,7 +271,7 @@ npm run build:webview
 
 ```sh
 # Terminal 1: Extension watch
-npm run watch:ext
+npm run watch:extension
 
 # Terminal 2: Webview watch
 npm run watch:webview

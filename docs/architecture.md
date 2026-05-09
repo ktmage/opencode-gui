@@ -43,9 +43,9 @@ webview/
 
 ## Build And Test
 
-- Extension host bundle: `npm run build:ext`
+- Extension host bundle: `npm run build:extension`
 - Webview bundle: `npm run build:webview`
 - Full build: `npm run build`
 - Webview tests: `npm test`
-- Extension host tests: `npm run test:ext`
+- Extension host tests: `npm run test:extension`
 - All tests: `npm run test:all`

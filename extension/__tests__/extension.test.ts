@@ -70,14 +70,14 @@ describe("extension", () => {
 
   describe("activate() - normal", () => {
     it("should connect, register webview provider and diff providers", async () => {
-      const ext = await importExtension();
+      const extensionModule = await importExtension();
       const subscriptions: { dispose: () => void }[] = [];
       const context = {
-        extensionUri: { fsPath: "/ext" },
+        extensionUri: { fsPath: "/extension" },
         subscriptions,
       };
 
-      await ext.activate(context as never);
+      await extensionModule.activate(context as never);
 
       // connect が呼ばれた
       expect(mockConnect).toHaveBeenCalled();
@@ -101,10 +101,10 @@ describe("extension", () => {
     });
 
     it("should change cwd to workspace folder and restore it", async () => {
-      const ext = await importExtension();
-      const context = { extensionUri: { fsPath: "/ext" }, subscriptions: [] };
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
 
-      await ext.activate(context as never);
+      await extensionModule.activate(context as never);
 
       // chdir が workspaceFolder で呼ばれ、その後元に戻されること
       const chdirCalls = chdirSpy.mock.calls.map((c: string[]) => c[0]);
@@ -121,10 +121,10 @@ describe("extension", () => {
   describe("activate() - no workspace", () => {
     it("should show warning and return early", async () => {
       vi.mocked(vscode.workspace).workspaceFolders = undefined as never;
-      const ext = await importExtension();
-      const context = { extensionUri: { fsPath: "/ext" }, subscriptions: [] };
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
 
-      await ext.activate(context as never);
+      await extensionModule.activate(context as never);
 
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("workspace"));
       expect(mockConnect).not.toHaveBeenCalled();
@@ -141,10 +141,10 @@ describe("extension", () => {
       error.code = "ENOENT";
       mockConnect.mockRejectedValueOnce(error);
 
-      const ext = await importExtension();
-      const context = { extensionUri: { fsPath: "/ext" }, subscriptions: [] };
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
 
-      await ext.activate(context as never);
+      await extensionModule.activate(context as never);
 
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("opencode"));
       // webview provider が登録されない
@@ -155,10 +155,10 @@ describe("extension", () => {
       const error = new Error("ENOENT: command not found");
       mockConnect.mockRejectedValueOnce(error);
 
-      const ext = await importExtension();
-      const context = { extensionUri: { fsPath: "/ext" }, subscriptions: [] };
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
 
-      await ext.activate(context as never);
+      await extensionModule.activate(context as never);
 
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("opencode"));
     });
@@ -173,10 +173,10 @@ describe("extension", () => {
       const error = new Error("Connection refused");
       mockConnect.mockRejectedValueOnce(error);
 
-      const ext = await importExtension();
-      const context = { extensionUri: { fsPath: "/ext" }, subscriptions: [] };
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
 
-      await expect(ext.activate(context as never)).rejects.toThrow("Connection refused");
+      await expect(extensionModule.activate(context as never)).rejects.toThrow("Connection refused");
     });
   });
 
@@ -186,9 +186,9 @@ describe("extension", () => {
 
   describe("deactivate()", () => {
     it("should call agent.disconnect()", async () => {
-      const ext = await importExtension();
+      const extensionModule = await importExtension();
 
-      ext.deactivate();
+      extensionModule.deactivate();
 
       expect(mockDisconnect).toHaveBeenCalled();
     });
@@ -200,9 +200,9 @@ describe("extension", () => {
 
   describe("diff content provider", () => {
     it("should decode URI query to provide document content", async () => {
-      const ext = await importExtension();
-      const context = { extensionUri: { fsPath: "/ext" }, subscriptions: [] };
-      await ext.activate(context as never);
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+      await extensionModule.activate(context as never);
 
       // registerTextDocumentContentProvider に渡されたプロバイダーを取得
       const registerCalls = vi.mocked(vscode.workspace.registerTextDocumentContentProvider).mock.calls;

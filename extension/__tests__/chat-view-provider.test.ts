@@ -144,7 +144,7 @@ function setupProvider(
   mockDiffReviewManager?: ReturnType<typeof createMockDiffReviewManager>,
   difitAvailable = false,
 ) {
-  const extensionUri = { fsPath: "/ext" };
+  const extensionUri = { fsPath: "/extension" };
   const ps = mockPlatformServices ?? createMockPlatformServices();
   const drm = mockDiffReviewManager ?? createMockDiffReviewManager();
   const provider = new ChatViewProvider(
@@ -1180,7 +1180,7 @@ describe("ChatViewProvider", () => {
   describe("postMessage null safety", () => {
     it("should not crash when view is not set", () => {
       // resolveWebviewView を呼ばずに provider を作成
-      const extensionUri = { fsPath: "/ext" };
+      const extensionUri = { fsPath: "/extension" };
       const provider = new ChatViewProvider(
         extensionUri as never,
         mockAgent as never,
