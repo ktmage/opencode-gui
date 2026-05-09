@@ -3,6 +3,14 @@ import { execFile, spawn } from "node:child_process";
 import type { FileDiff } from "@shared";
 import { createTwoFilesPatch } from "diff";
 import * as vscode from "vscode";
+import { DifitBinaryNotFoundError, DifitError } from "./errors";
+
+/** spawn 失敗が ENOENT（実行ファイル未検出）を示しているか判定する。 */
+function isBinaryNotFoundError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === "ENOENT" || error.message.includes("ENOENT");
+}
 
 /**
  * difit という外部プロセスとのやり取りを集約するハンドル。
@@ -67,6 +75,9 @@ export class DifitHandle implements vscode.Disposable {
   /**
    * difit を子プロセスとして起動し、stdin に unified diff を書き込む。
    * stdout から http://... の URL を検出して返す。
+   *
+   * @throws {@link DifitBinaryNotFoundError} `difit` バイナリが PATH 上に存在しない場合。
+   * @throws {@link DifitError} それ以外の理由で difit の起動に失敗した場合。
    */
   private spawnDifit(unifiedDiff: string): Promise<string> {
     return new Promise<string>((resolve, reject) => {
@@ -75,7 +86,7 @@ export class DifitHandle implements vscode.Disposable {
 
       const { stdout, stderr, stdin } = child;
       if (!stdout || !stderr || !stdin) {
-        reject(new Error("Failed to create stdio streams"));
+        reject(new DifitError(new Error("Failed to create stdio streams")));
         return;
       }
 
@@ -96,13 +107,17 @@ export class DifitHandle implements vscode.Disposable {
 
       child.on("error", (err) => {
         this.process = null;
-        reject(err);
+        if (isBinaryNotFoundError(err)) {
+          reject(new DifitBinaryNotFoundError(err));
+        } else {
+          reject(new DifitError(err));
+        }
       });
 
       child.on("close", (code) => {
         this.process = null;
         if (!this.serverUrl) {
-          reject(new Error(`difit exited with code ${code} before emitting URL`));
+          reject(new DifitError(new Error(`difit exited with code ${code} before emitting URL`)));
         }
       });
 

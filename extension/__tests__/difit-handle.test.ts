@@ -14,6 +14,7 @@ import { execFile, spawn } from "node:child_process";
 import { EventEmitter, Readable, Writable } from "node:stream";
 import * as vscode from "vscode";
 import { DifitHandle, fileDiffsToUnifiedDiff } from "../difit-handle";
+import { DifitBinaryNotFoundError, DifitError } from "../errors";
 
 /** stdin / stdout / stderr を持つ擬似 ChildProcess を生成する */
 function createMockProcess() {
@@ -169,8 +170,7 @@ describe("DifitHandle", () => {
       expect(proc1.kill).toHaveBeenCalled();
     });
 
-    // should reject when difit exits before emitting URL
-    it("URL 出力前に difit が終了した場合 reject すること", async () => {
+    it("URL 出力前に difit が終了した場合 DifitError で reject する（cause に元エラー）", async () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
@@ -178,19 +178,36 @@ describe("DifitHandle", () => {
 
       mockProc.emit("close", 1);
 
-      await expect(startPromise).rejects.toThrow("difit exited with code 1 before emitting URL");
+      const rejection = await startPromise.catch((e: unknown) => e);
+      expect(rejection).toBeInstanceOf(DifitError);
+      expect(rejection).not.toBeInstanceOf(DifitBinaryNotFoundError);
+      expect((rejection as DifitError).cause).toBeInstanceOf(Error);
     });
 
-    // should reject on spawn error
-    it("spawn エラー時に reject すること", async () => {
+    it("spawn が ENOENT エラーを emit した場合 DifitBinaryNotFoundError で reject する", async () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
       const startPromise = handle.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
 
-      mockProc.emit("error", new Error("ENOENT"));
+      mockProc.emit("error", Object.assign(new Error("spawn ENOENT"), { code: "ENOENT" }));
 
-      await expect(startPromise).rejects.toThrow("ENOENT");
+      await expect(startPromise).rejects.toBeInstanceOf(DifitBinaryNotFoundError);
+    });
+
+    it("spawn が ENOENT 以外のエラーを emit した場合 DifitError で reject する", async () => {
+      const mockProc = createMockProcess();
+      vi.mocked(spawn).mockReturnValue(mockProc as never);
+
+      const startPromise = handle.start([{ file: "a.ts", before: "", after: "x", additions: 1, deletions: 0 }]);
+
+      const original = new Error("EACCES");
+      mockProc.emit("error", original);
+
+      const rejection = await startPromise.catch((e: unknown) => e);
+      expect(rejection).toBeInstanceOf(DifitError);
+      expect(rejection).not.toBeInstanceOf(DifitBinaryNotFoundError);
+      expect((rejection as DifitError).cause).toBe(original);
     });
   });
 
