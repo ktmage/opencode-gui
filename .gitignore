@@ -17,3 +17,7 @@ Thumbs.db
 # Environment
 .env
 .env.*
+
+# Agents
+AGENTS.md
+CLAUDE.md
