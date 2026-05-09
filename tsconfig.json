@@ -19,5 +19,5 @@
     "jsx": "react-jsx"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/webview"]
+  "exclude": ["node_modules", "dist", "webview"]
 }

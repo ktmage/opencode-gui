@@ -4,14 +4,14 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
-  root: "src/webview",
+  root: "webview",
   resolve: {
     alias: {
       "@shared": path.resolve(__dirname, "src/shared/index.ts"),
     },
   },
   build: {
-    outDir: "../../dist/webview",
+    outDir: "../dist/webview",
     emptyOutDir: true,
     // Webview では単一の JS/CSS ファイルにバンドルしたい
     cssCodeSplit: false,

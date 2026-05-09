@@ -37,7 +37,7 @@ globalThis.AudioContext = vi.fn(function (this: Record<string, unknown>) {
 }) as unknown as typeof AudioContext;
 
 // --- vscode-api モック ---
-// acquireVsCodeApi はグローバル関数として宣言されており、src/webview/vscode-api.ts のモジュールスコープで呼ばれる。
+// acquireVsCodeApi はグローバル関数として宣言されており、webview/vscode-api.ts のモジュールスコープで呼ばれる。
 // モジュール全体をモックにして postMessage / getPersistedState / setPersistedState をスパイ化する。
 
 vi.mock("../vscode-api", () => ({

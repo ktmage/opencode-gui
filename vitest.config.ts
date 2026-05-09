@@ -11,8 +11,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    root: "src/webview",
-    setupFiles: [path.resolve(__dirname, "src/webview/__tests__/setup.ts")],
+    root: "webview",
+    setupFiles: [path.resolve(__dirname, "webview/__tests__/setup.ts")],
     include: ["./__tests__/**/*.test.{ts,tsx}"],
     globals: true,
     css: {

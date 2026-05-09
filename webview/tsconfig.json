@@ -5,7 +5,7 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
-    "baseUrl": "../..",
+    "baseUrl": "..",
     "paths": {
       "@shared": ["src/shared/index.ts"]
     },
