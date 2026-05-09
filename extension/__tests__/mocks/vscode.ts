@@ -23,6 +23,7 @@ export const window = {
   registerWebviewViewProvider: vi.fn(() => ({ dispose: vi.fn() })),
   showWarningMessage: vi.fn(),
   showErrorMessage: vi.fn(),
+  showInformationMessage: vi.fn(),
   showTextDocument: vi.fn().mockResolvedValue(undefined),
   activeTextEditor: undefined as unknown,
   onDidChangeActiveTextEditor: vi.fn(() => ({ dispose: vi.fn() })),

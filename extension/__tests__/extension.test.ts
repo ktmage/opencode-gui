@@ -6,6 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- モックの準備 ---
 
+// difit の存在確認 (`which difit`) をモックで制御する。
+// 既定では「見つかった」相当（callback に error なしで応答）にしておき、
+// 必要なテストで `mockExecFile.mockImplementationOnce(...)` で個別に上書きする。
+const mockExecFile = vi.fn((_cmd: string, _args: string[], cb: (error: unknown) => void) => {
+  cb(null);
+});
+vi.mock("node:child_process", () => ({
+  execFile: (cmd: string, args: string[], cb: (error: unknown) => void) => mockExecFile(cmd, args, cb),
+}));
+
 const mockConnect = vi.fn().mockResolvedValue(undefined);
 const mockDisconnect = vi.fn();
 
@@ -169,6 +179,35 @@ describe("extension", () => {
       expect(vscode.window.registerWebviewViewProvider).not.toHaveBeenCalled();
 
       consoleErrorSpy.mockRestore();
+    });
+  });
+
+  // ============================================================
+  // activate - difit の有無による分岐
+  // ============================================================
+
+  describe("activate() - difit availability", () => {
+    it("difit が見つからない場合は info メッセージを表示する", async () => {
+      // `which difit` が失敗（exit code 非 0）した状況を模す。
+      mockExecFile.mockImplementationOnce((_cmd, _args, cb) => cb(new Error("not found")));
+
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining("difit"));
+    });
+
+    it("difit が見つかった場合は info メッセージを表示しない", async () => {
+      mockExecFile.mockImplementationOnce((_cmd, _args, cb) => cb(null));
+
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
     });
   });
 

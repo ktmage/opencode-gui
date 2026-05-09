@@ -13,4 +13,8 @@ export const messages = {
     unexpected:
       "OpenCodeGUI: An unexpected error occurred while starting OpenCode. See the developer log for details.",
   },
+  info: {
+    difitNotAvailable:
+      'OpenCodeGUI: "difit" command not found. The diff review feature will be disabled. Install difit to enable it.',
+  },
 } as const;

@@ -26,9 +26,10 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  // PATH 上に difit が存在するか確認する。
-  // 存在しない場合はレビューボタンを非表示にするだけでエラーは出さない。
   const difitAvailable = await checkDifitAvailable();
+  if (!difitAvailable) {
+    vscode.window.showInformationMessage(t("info.difitNotAvailable"));
+  }
 
   const diffReviewManager = new DiffReviewManager();
   const chatViewProvider = new ChatViewProvider(
