@@ -26,7 +26,12 @@ vi.mock("@opencode-ai/sdk/v2", () => ({
 }));
 
 import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk/v2";
-import { OpenCodeBinaryNotFoundError, OpenCodeClientNotConnectedError } from "../errors";
+import {
+  OpenCodeBinaryNotFoundError,
+  OpenCodeClientNotConnectedError,
+  OpenCodeError,
+  OpenCodeServerStartError,
+} from "../errors";
 import { OpenCodeClientHandle } from "../opencode-client-handle";
 
 describe("OpenCodeClientHandle", () => {
@@ -73,11 +78,22 @@ describe("OpenCodeClientHandle", () => {
       await expect(handle.connect()).rejects.toBeInstanceOf(OpenCodeBinaryNotFoundError);
     });
 
-    it("ENOENT 以外のエラーはそのまま伝播する", async () => {
-      const other = new Error("port already in use");
-      vi.mocked(createOpencodeServer).mockRejectedValueOnce(other);
+    it("ENOENT 以外のエラーは OpenCodeServerStartError でラップされ、cause に元エラーを保持する", async () => {
+      const original = new Error("port already in use");
+      vi.mocked(createOpencodeServer).mockRejectedValueOnce(original);
 
-      await expect(handle.connect()).rejects.toBe(other);
+      const rejection = await handle.connect().catch((e: unknown) => e);
+
+      expect(rejection).toBeInstanceOf(OpenCodeServerStartError);
+      expect(rejection).toBeInstanceOf(OpenCodeError);
+      expect((rejection as OpenCodeServerStartError).cause).toBe(original);
+    });
+
+    it("OpenCodeBinaryNotFoundError も OpenCodeError として識別できる（基底クラスでまとめて catch 可能）", async () => {
+      const enoent = Object.assign(new Error("spawn opencode ENOENT"), { code: "ENOENT" });
+      vi.mocked(createOpencodeServer).mockRejectedValueOnce(enoent);
+
+      await expect(handle.connect()).rejects.toBeInstanceOf(OpenCodeError);
     });
   });
 
