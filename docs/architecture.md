@@ -8,17 +8,18 @@ diff editors.
 ## Structure
 
 ```
-src/
+extension/
   extension.ts              VS Code activation entry point
   chat-view-provider.ts     Webview message router
   opencode-agent.ts         OpenCode SDK lifecycle and API calls
   mappers.ts                SDK type to UI/domain type mapping
   vscode-platform-services.ts
                              VS Code API helpers
-  shared/
-    domain.ts               Shared session/message/tool/config types
-    protocol.ts             Webview <-> extension host messages
-  webview/
+  __tests__/                Extension host tests
+shared/
+  domain.ts                 Shared session/message/tool/config types
+  protocol.ts               Webview <-> extension host messages
+webview/
   App.tsx                   React state and event handling
   components/               UI components
   hooks/                    React hooks

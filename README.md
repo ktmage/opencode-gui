@@ -142,20 +142,21 @@ npm test
 This project is a single VS Code extension package:
 
 ```
-src/
+extension/
   extension.ts            # Extension entry point
   chat-view-provider.ts   # Webview panel & messaging
   opencode-agent.ts       # OpenCode SDK integration
   mappers.ts              # SDK to UI/domain type mappers
-  shared/                 # Shared types for extension host and webview
-  webview/                # Webview (React)
+  __tests__/              # Extension host tests
+shared/                   # Shared types for extension host and webview
+webview/                  # Webview (React)
   App.tsx                 # State management & SSE event handling
   components/             # React components
   hooks/                  # Custom React hooks
   contexts/               # React Context providers
   locales/                # i18n locale files
   utils/                  # Utility functions
-  __tests__/              # Tests
+  __tests__/              # Webview tests
 ```
 
 ### Contributing
@@ -299,20 +300,21 @@ npm test
 本プロジェクトは単一の VS Code 拡張パッケージです。
 
 ```
-src/
+extension/
   extension.ts            # 拡張機能エントリーポイント
   chat-view-provider.ts   # Webview パネル & メッセージング
   opencode-agent.ts       # OpenCode SDK 連携
   mappers.ts              # SDK から UI/ドメイン型へのマッパー
-  shared/                 # Extension Host と Webview の共有型
-  webview/                # Webview (React)
+  __tests__/              # Extension Host テスト
+shared/                   # Extension Host と Webview の共有型
+webview/                  # Webview (React)
   App.tsx                 # 状態管理 & SSE イベントハンドリング
   components/             # React コンポーネント
   hooks/                  # カスタム React フック
   contexts/               # React Context プロバイダー
   locales/                # i18n locale files
   utils/                  # ユーティリティ関数
-  __tests__/              # テスト
+  __tests__/              # Webview テスト
 ```
 
 ### コントリビュート

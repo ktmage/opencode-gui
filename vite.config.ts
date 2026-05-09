@@ -7,7 +7,7 @@ export default defineConfig({
   root: "webview",
   resolve: {
     alias: {
-      "@shared": path.resolve(__dirname, "src/shared/index.ts"),
+      "@shared": path.resolve(__dirname, "shared/index.ts"),
     },
   },
   build: {

@@ -4,13 +4,13 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
-      "@shared": path.resolve(__dirname, "src/shared/index.ts"),
+      "@shared": path.resolve(__dirname, "shared/index.ts"),
     },
   },
   test: {
     environment: "node",
     globals: true,
-    include: ["src/__tests__/**/*.test.ts"],
-    setupFiles: ["src/__tests__/setup.ts"],
+    include: ["extension/__tests__/**/*.test.ts"],
+    setupFiles: ["extension/__tests__/setup.ts"],
   },
 });

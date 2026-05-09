@@ -4,12 +4,12 @@ const watch = process.argv.includes("--watch");
 
 /** @type {esbuild.BuildOptions} */
 const buildOptions = {
-  entryPoints: ["src/extension.ts"],
+  entryPoints: ["extension/extension.ts"],
   bundle: true,
   outfile: "dist/extension.js",
   external: ["vscode"],
   alias: {
-    "@shared": "./src/shared/index.ts",
+    "@shared": "./shared/index.ts",
   },
   format: "cjs",
   platform: "node",
