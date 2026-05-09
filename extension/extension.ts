@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ChatViewProvider } from "./chat-view-provider";
+import { ChatPanel } from "./chat-panel";
 import { DifitHandle } from "./difit-handle";
 import { OpenCodeBinaryNotFoundError, OpenCodeError } from "./errors";
 import { t } from "./i18n";
@@ -31,13 +31,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage(t("info.difitNotAvailable"));
   }
 
-  const chatViewProvider = new ChatViewProvider(
-    context.extensionUri,
-    openCodeClientHandle,
-    workspaceFolder,
-    difitHandle,
-  );
-  context.subscriptions.push(vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider));
+  const chatPanel = new ChatPanel(context.extensionUri, openCodeClientHandle, workspaceFolder, difitHandle);
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(ChatPanel.viewType, chatPanel));
   context.subscriptions.push(difitHandle);
 
   // diff エディタ用の仮想ドキュメントプロバイダー。

@@ -19,7 +19,7 @@ import * as vscode from "vscode";
 import type { DifitHandle } from "./difit-handle";
 import type { OpenCodeClientHandle } from "./opencode-client-handle";
 
-export class ChatViewProvider implements vscode.WebviewViewProvider {
+export class ChatPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencode.chatView";
 
   private view: vscode.WebviewView | undefined;

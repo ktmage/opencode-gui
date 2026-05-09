@@ -1,6 +1,6 @@
 /**
  * extension.ts (activate / deactivate) のユニットテスト。
- * ChatViewProvider と OpenCodeClientHandle をモックし、起動・停止の振る舞いを検証する。
+ * ChatPanel と OpenCodeClientHandle をモックし、起動・停止の振る舞いを検証する。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,9 +29,9 @@ function createMockAgentClass() {
   };
 }
 
-// ChatViewProvider のモック — コンストラクタとして使われる
-function createMockChatViewProviderClass() {
-  return Object.assign(class MockChatViewProvider {}, { viewType: "opencode.chatView" });
+// ChatPanel のモック — コンストラクタとして使われる
+function createMockChatPanelClass() {
+  return Object.assign(class MockChatPanel {}, { viewType: "opencode.chatView" });
 }
 
 import * as vscode from "vscode";
@@ -67,8 +67,8 @@ describe("extension", () => {
     vi.doMock("../opencode-client-handle", () => ({
       OpenCodeClientHandle: createMockAgentClass(),
     }));
-    vi.doMock("../chat-view-provider", () => ({
-      ChatViewProvider: createMockChatViewProviderClass(),
+    vi.doMock("../chat-panel", () => ({
+      ChatPanel: createMockChatPanelClass(),
     }));
 
     return import("../extension");

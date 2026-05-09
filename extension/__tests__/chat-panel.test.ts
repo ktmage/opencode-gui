@@ -1,5 +1,5 @@
 /**
- * ChatViewProvider のユニットテスト。
+ * ChatPanel のユニットテスト。
  * OpenCodeClientHandle をモックし、webview メッセージハンドラの振る舞いを検証する。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +13,7 @@ vi.mock("node:fs/promises", () => ({
 
 import * as fs from "node:fs/promises";
 import * as vscode from "vscode";
-import { ChatViewProvider } from "../chat-view-provider";
+import { ChatPanel } from "../chat-panel";
 import type { DifitHandle } from "../difit-handle";
 import type { OpenCodeClientHandle } from "../opencode-client-handle";
 
@@ -238,7 +238,7 @@ function setupProvider(
 ) {
   const extensionUri = { fsPath: "/extension" };
   const dh = mockDifitHandle ?? createMockDifitHandle(difitAvailable);
-  const provider = new ChatViewProvider(extensionUri as never, mockAgent as never, "/workspace", dh as never);
+  const provider = new ChatPanel(extensionUri as never, mockAgent as never, "/workspace", dh as never);
   const mock = createMockWebviewView();
   provider.resolveWebviewView(
     mock.webviewView as never,
@@ -248,7 +248,7 @@ function setupProvider(
   return { provider, difitHandle: dh, ...mock };
 }
 
-describe("ChatViewProvider", () => {
+describe("ChatPanel", () => {
   let mockAgent: ReturnType<typeof createMockAgent>;
 
   beforeEach(() => {
@@ -1301,7 +1301,7 @@ describe("ChatViewProvider", () => {
     it("should not crash when view is not set", () => {
       // resolveWebviewView を呼ばずに provider を作成
       const extensionUri = { fsPath: "/extension" };
-      const provider = new ChatViewProvider(
+      const provider = new ChatPanel(
         extensionUri as never,
         mockAgent as never,
         "/workspace",

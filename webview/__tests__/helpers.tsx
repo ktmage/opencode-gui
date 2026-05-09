@@ -4,7 +4,7 @@ import type { HostToUIMessage } from "../vscode-api";
 
 /**
  * Extension Host → Webview メッセージを擬似送信する。
- * chat-view-provider.ts が panel.webview.postMessage() で送るメッセージを再現する。
+ * chat-panel.ts が panel.webview.postMessage() で送るメッセージを再現する。
  */
 export async function sendExtMessage(msg: HostToUIMessage): Promise<void> {
   await act(async () => {
