@@ -1,0 +1,4 @@
+{
+  "OpenCodeGUI requires an open workspace folder.": "OpenCodeGUI を使用するにはワークスペースフォルダーを開いてください。",
+  "OpenCodeGUI: \"opencode\" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode": "OpenCodeGUI: \"opencode\" コマンドが見つかりません。先に OpenCode をインストールしてください: https://github.com/anomalyco/opencode"
+}

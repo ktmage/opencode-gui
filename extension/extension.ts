@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import * as vscode from "vscode";
 import { ChatViewProvider } from "./chat-view-provider";
 import { DiffReviewManager } from "./diff-review-manager";
+import { t } from "./i18n";
 import { OpenCodeClientHandle } from "./opencode-client-handle";
 import { VscodePlatformServices } from "./vscode-platform-services";
 
@@ -10,10 +11,14 @@ const openCodeClientHandle = new OpenCodeClientHandle();
 // Extension Host プロセスが強制終了された場合でもサーバーを停止する
 process.on("exit", () => openCodeClientHandle.disconnect());
 
+/**
+ * VS Code から呼ばれる拡張機能のエントリポイント。
+ * 呼び出し契機は `package.json` の `activationEvents` および `contributes` 宣言で定義されている。
+ */
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceFolder) {
-    vscode.window.showWarningMessage(vscode.l10n.t("OpenCodeGUI requires an open workspace folder."));
+    vscode.window.showWarningMessage(t("warnings.noWorkspace"));
     return;
   }
 
@@ -28,11 +33,7 @@ export async function activate(context: vscode.ExtensionContext) {
       error instanceof Error &&
       (("code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") || error.message.includes("ENOENT"));
     if (isNotFound) {
-      vscode.window.showWarningMessage(
-        vscode.l10n.t(
-          'OpenCodeGUI: "opencode" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode',
-        ),
-      );
+      vscode.window.showWarningMessage(t("warnings.opencodeNotFound"));
       return;
     }
     throw error;
@@ -73,6 +74,11 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(new vscode.Disposable(() => openCodeClientHandle.disconnect()));
 }
 
+/**
+ * VS Code から呼ばれる拡張機能の終了フック。
+ * ウィンドウを閉じる・拡張を無効化する・リロードするタイミングで呼ばれる。
+ * `context.subscriptions` 管理外のリソースはここで解放する必要がある。
+ */
 export function deactivate() {
   openCodeClientHandle.disconnect();
 }
