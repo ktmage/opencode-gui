@@ -2,38 +2,14 @@ import type { TextPart } from "@shared";
 import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/common";
 import { Marked, type Renderer, type Tokens } from "marked";
-import { createElement, useCallback, useMemo } from "react";
-import { flushSync } from "react-dom";
-import { createRoot } from "react-dom/client";
-import { getFileIcon } from "../../../utils/file-icons";
+import { useCallback, useMemo } from "react";
 import { preprocessNestedCodeBlocks } from "../../../utils/markdown";
 import { postMessage } from "../../../vscode-api";
 
 // --- SVG アイコン (VSC アイコン相当) ---
 const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M4 4l1-1h5.414L14 6.586V14l-1 1H5l-1-1V4zm9 3l-3-3H5v10h8V7z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3 1L2 2v10l1 1V2h6.414l-1-1H3z"/></svg>`;
 const CHECK_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M14.431 3.323l-8.47 10-.79-.036-3.35-4.77.818-.574 2.978 4.24 8.051-9.506.763.646z"/></svg>`;
-
-/** ファイルパスから拡張子に応じたアイコンの HTML 文字列を生成する（結果はキャッシュ） */
-const fileIconHtmlCache = new Map<string, string>();
-function getFileIconHtml(filePath: string): string {
-  const fileName = filePath.split("/").pop() || filePath;
-  const FileTypeIcon = getFileIcon(fileName);
-  const key = FileTypeIcon.name;
-
-  const cached = fileIconHtmlCache.get(key);
-  if (cached) return cached;
-
-  const container = document.createElement("span");
-  const root = createRoot(container);
-  flushSync(() => {
-    root.render(createElement(FileTypeIcon, { width: 12, height: 12, className: "file-chip-icon" }));
-  });
-  const html = container.innerHTML;
-  root.unmount();
-
-  fileIconHtmlCache.set(key, html);
-  return html;
-}
+const FILE_ICON = `<svg aria-hidden="true" class="file-chip-icon" width="12" height="12" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M3 1h6.414L13 4.586V15H3V1zm6 1.5V5h2.5L9 2.5zM4 2v12h8V6H8V2H4z"/></svg>`;
 
 /**
  * コードブロック用カスタムレンダラー。
@@ -67,8 +43,7 @@ const linkRenderer: Partial<Renderer> = {
       const filePath = lineMatch ? href.slice(0, lineMatch.index) : href;
       const lineAttr = lineMatch ? ` data-file-line="${lineMatch[1]}"` : "";
       const escapedPath = filePath.replace(/"/g, "&quot;");
-      const iconHtml = getFileIconHtml(filePath);
-      return `<a href="#" class="file-chip" data-file-path="${escapedPath}"${lineAttr}>${iconHtml}<span class="file-chip-label">${text}</span></a>`;
+      return `<a href="#" class="file-chip" data-file-path="${escapedPath}"${lineAttr}>${FILE_ICON}<span class="file-chip-label">${text}</span></a>`;
     }
     return `<a href="${href}">${text}</a>`;
   },
@@ -147,8 +122,7 @@ function linkifyAbsolutePaths(html: string): string {
       const escapedPath = filePath.replace(/"/g, "&quot;");
       const lineAttr = lineNum ? ` data-file-line="${lineNum}"` : "";
       const display = lineNum ? `${filePath}:${lineNum}` : filePath;
-      const iconHtml = getFileIconHtml(filePath);
-      return `<a href="#" class="file-chip" data-file-path="${escapedPath}"${lineAttr}>${iconHtml}<span class="file-chip-label">${display}</span></a>`;
+      return `<a href="#" class="file-chip" data-file-path="${escapedPath}"${lineAttr}>${FILE_ICON}<span class="file-chip-label">${display}</span></a>`;
     });
   });
 }
