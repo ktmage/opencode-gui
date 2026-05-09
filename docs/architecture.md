@@ -11,8 +11,7 @@ diff editors.
 extension/
   extension.ts              VS Code activation entry point
   chat-view-provider.ts     Webview message router
-  opencode-agent.ts         OpenCode SDK lifecycle and API calls
-  mappers.ts                SDK type to UI/domain type mapping
+  opencode-client-handle.ts OpenCode client lifecycle
   vscode-platform-services.ts
                              VS Code API helpers
   __tests__/                Extension host tests
@@ -31,13 +30,12 @@ webview/
 
 ## Data Flow
 
-1. `extension.ts` creates `OpenCodeAgent` and calls `connect()`.
-2. `OpenCodeAgent` starts the OpenCode server, creates the SDK client, and
+1. `extension.ts` creates `OpenCodeClientHandle` and calls `connect()`.
+2. `OpenCodeClientHandle` starts the OpenCode server, creates the SDK client, and
    subscribes to SDK events.
 3. `ChatViewProvider` receives messages from the webview and calls
-   `OpenCodeAgent` or `VscodePlatformServices` directly.
-4. SDK events are mapped in `mappers.ts` and forwarded to the webview as
-   `HostToUIMessage`.
+   the OpenCode SDK client or `VscodePlatformServices` directly.
+4. SDK events are forwarded to the webview as `HostToUIMessage`.
 5. The webview updates React state from host messages and sends user actions
    back as `UIToHostMessage`.
 

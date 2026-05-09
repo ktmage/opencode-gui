@@ -1,0 +1,169 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+function createMockSdkClient() {
+  return {
+    event: {
+      subscribe: vi.fn().mockResolvedValue({
+        stream: (async function* () {
+          // default empty stream
+        })(),
+      }),
+    },
+  };
+}
+
+let mockClient: ReturnType<typeof createMockSdkClient>;
+const mockServerClose = vi.fn();
+
+vi.mock("@opencode-ai/sdk/v2", () => ({
+  createOpencodeServer: vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      url: "http://localhost:12345",
+      close: mockServerClose,
+    }),
+  ),
+  createOpencodeClient: vi.fn().mockImplementation(() => mockClient),
+}));
+
+import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk/v2";
+import { OpenCodeClientHandle } from "../opencode-client-handle";
+
+describe("OpenCodeClientHandle", () => {
+  let handle: OpenCodeClientHandle;
+
+  beforeEach(() => {
+    mockClient = createMockSdkClient();
+    vi.mocked(createOpencodeClient).mockReturnValue(mockClient as never);
+    handle = new OpenCodeClientHandle();
+  });
+
+  afterEach(() => {
+    handle.disconnect();
+    vi.clearAllMocks();
+  });
+
+  describe("connect()", () => {
+    it("creates an OpenCode server on a free port and creates an SDK client", async () => {
+      await handle.connect();
+
+      expect(createOpencodeServer).toHaveBeenCalledWith({ port: 0 });
+      expect(createOpencodeClient).toHaveBeenCalledWith({ baseUrl: "http://localhost:12345" });
+      expect(handle.getClient()).toBe(mockClient);
+      expect(handle.getServerUrl()).toBe("http://localhost:12345");
+    });
+
+    it("subscribes to SDK events after connecting", async () => {
+      await handle.connect();
+
+      expect(mockClient.event.subscribe).toHaveBeenCalled();
+    });
+  });
+
+  describe("disconnect()", () => {
+    it("closes the server and clears client state", async () => {
+      await handle.connect();
+
+      handle.disconnect();
+
+      expect(mockServerClose).toHaveBeenCalled();
+      expect(handle.getServerUrl()).toBeUndefined();
+      expect(() => handle.getClient()).toThrow("OpenCode client is not connected. Call connect() first.");
+    });
+
+    it("is idempotent", () => {
+      expect(() => handle.disconnect()).not.toThrow();
+    });
+  });
+
+  describe("events", () => {
+    it("delivers SSE events to listeners", async () => {
+      const events = [
+        { type: "session.updated", properties: { id: "sess-1" } },
+        { type: "message.created", properties: { id: "msg-1" } },
+      ];
+      let resolveStream!: () => void;
+      const streamDone = new Promise<void>((resolve) => {
+        resolveStream = resolve;
+      });
+
+      mockClient.event.subscribe.mockResolvedValue({
+        stream: (async function* () {
+          for (const event of events) {
+            yield event;
+          }
+          resolveStream();
+        })(),
+      });
+
+      const listener = vi.fn();
+      handle.onEvent(listener);
+      await handle.connect();
+      await streamDone;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(listener).toHaveBeenCalledTimes(2);
+      expect(listener).toHaveBeenCalledWith(events[0]);
+      expect(listener).toHaveBeenCalledWith(events[1]);
+    });
+
+    it("removes listeners when their disposable is disposed", async () => {
+      let emitEvent: ((event: unknown) => void) | undefined;
+      let endStream: (() => void) | undefined;
+
+      mockClient.event.subscribe.mockResolvedValue({
+        stream: (async function* () {
+          const queue: unknown[] = [];
+          let resolve: (() => void) | undefined;
+          let done = false;
+
+          emitEvent = (event: unknown) => {
+            queue.push(event);
+            resolve?.();
+          };
+          endStream = () => {
+            done = true;
+            resolve?.();
+          };
+
+          while (!done) {
+            if (queue.length > 0) {
+              const next = queue.shift();
+              if (next !== undefined) {
+                yield next;
+              }
+            } else {
+              await new Promise<void>((r) => {
+                resolve = r;
+              });
+            }
+          }
+        })(),
+      });
+
+      await handle.connect();
+      const listener = vi.fn();
+      const disposable = handle.onEvent(listener);
+
+      emitEvent?.({ type: "test-event-1" });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      disposable.dispose();
+      emitEvent?.({ type: "test-event-2" });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      endStream?.();
+    });
+
+    it("resubscribes by aborting the previous stream and creating a new subscription", async () => {
+      await handle.connect();
+
+      expect(mockClient.event.subscribe).toHaveBeenCalledTimes(1);
+
+      await handle.resubscribeEvents();
+
+      expect(mockClient.event.subscribe).toHaveBeenCalledTimes(2);
+    });
+  });
+});

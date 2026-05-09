@@ -1,6 +1,6 @@
 /**
  * extension.ts (activate / deactivate) のユニットテスト。
- * ChatViewProvider と OpenCodeAgent をモックし、起動・停止の振る舞いを検証する。
+ * ChatViewProvider と OpenCodeClientHandle をモックし、起動・停止の振る舞いを検証する。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,10 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockConnect = vi.fn().mockResolvedValue(undefined);
 const mockDisconnect = vi.fn();
 
-// モジュールスコープで `new OpenCodeAgent()` が呼ばれるため、
+// モジュールスコープで `new OpenCodeClientHandle()` が呼ばれるため、
 // コンストラクタとして機能するクラスを返す必要がある。
 function createMockAgentClass() {
-  return class MockOpenCodeAgent {
+  return class MockOpenCodeClientHandle {
     connect = mockConnect;
     disconnect = mockDisconnect;
     workspaceFolder: string | undefined = undefined;
@@ -48,14 +48,14 @@ describe("extension", () => {
   });
 
   /**
-   * extension.ts はモジュールスコープで `new OpenCodeAgent()` を実行する。
+   * extension.ts はモジュールスコープで `new OpenCodeClientHandle()` を実行する。
    * テストごとに新しいモジュールインスタンスが必要なので、毎回 resetModules して再 import する。
    */
   async function importExtension() {
     vi.resetModules();
 
-    vi.doMock("../opencode-agent", () => ({
-      OpenCodeAgent: createMockAgentClass(),
+    vi.doMock("../opencode-client-handle", () => ({
+      OpenCodeClientHandle: createMockAgentClass(),
     }));
     vi.doMock("../chat-view-provider", () => ({
       ChatViewProvider: createMockChatViewProviderClass(),

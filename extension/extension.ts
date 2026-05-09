@@ -2,13 +2,13 @@ import { execFile } from "node:child_process";
 import * as vscode from "vscode";
 import { ChatViewProvider } from "./chat-view-provider";
 import { DiffReviewManager } from "./diff-review-manager";
-import { OpenCodeAgent } from "./opencode-agent";
+import { OpenCodeClientHandle } from "./opencode-client-handle";
 import { VscodePlatformServices } from "./vscode-platform-services";
 
-const agent = new OpenCodeAgent();
+const openCodeClientHandle = new OpenCodeClientHandle();
 
 // Extension Host プロセスが強制終了された場合でもサーバーを停止する
-process.on("exit", () => agent.disconnect());
+process.on("exit", () => openCodeClientHandle.disconnect());
 
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -22,8 +22,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const originalCwd = process.cwd();
   process.chdir(workspaceFolder);
   try {
-    agent.workspaceFolder = workspaceFolder;
-    await agent.connect();
+    await openCodeClientHandle.connect();
   } catch (error) {
     const isNotFound =
       error instanceof Error &&
@@ -50,7 +49,8 @@ export async function activate(context: vscode.ExtensionContext) {
   const diffReviewManager = new DiffReviewManager();
   const chatViewProvider = new ChatViewProvider(
     context.extensionUri,
-    agent,
+    openCodeClientHandle,
+    workspaceFolder,
     platformServices,
     diffReviewManager,
     difitAvailable,
@@ -70,11 +70,11 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerTextDocumentContentProvider("opencode-diff-after", diffContentProvider),
   );
 
-  context.subscriptions.push(new vscode.Disposable(() => agent.disconnect()));
+  context.subscriptions.push(new vscode.Disposable(() => openCodeClientHandle.disconnect()));
 }
 
 export function deactivate() {
-  agent.disconnect();
+  openCodeClientHandle.disconnect();
 }
 
 /** PATH 上に difit コマンドが存在するかチェックする */

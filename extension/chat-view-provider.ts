@@ -1,9 +1,23 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { ChatSession, FileAttachment, HostToUIMessage, UIToHostMessage } from "@shared";
+import type {
+  AgentInfo,
+  AllProvidersData,
+  AppPaths,
+  ChatMessageWithParts,
+  ChatSession,
+  FileAttachment,
+  FileDiff,
+  HostToUIMessage,
+  ProviderInfo,
+  SendMessageOptions,
+  SkillInfo,
+  TodoItem,
+  UIToHostMessage,
+} from "@shared";
 import * as vscode from "vscode";
 import type { DiffReviewManager } from "./diff-review-manager";
-import type { OpenCodeAgent } from "./opencode-agent";
+import type { OpenCodeClientHandle } from "./opencode-client-handle";
 import type { VscodePlatformServices } from "./vscode-platform-services";
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -16,7 +30,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly agent: OpenCodeAgent,
+    private readonly openCodeClientHandle: OpenCodeClientHandle,
+    private readonly workspaceFolder: string,
     private readonly platformServices: VscodePlatformServices,
     private readonly diffReviewManager: DiffReviewManager,
     private readonly difitAvailable: boolean,
@@ -39,7 +54,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage((message: UIToHostMessage) => this.handleWebviewMessage(message));
 
     // SSE イベントを Webview に転送する
-    this.agent.onEvent((event) => {
+    this.openCodeClientHandle.onEvent((event) => {
       this.postMessage({ type: "event", event });
     });
 
@@ -59,23 +74,27 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async handleWebviewMessageInner(message: UIToHostMessage): Promise<void> {
+    const client = this.openCodeClientHandle.getClient();
+
     switch (message.type) {
       case "ready": {
         // Webview の初期化完了時に init メッセージを送信する（locale + toolConfig を統合）
-        const paths = await this.agent.getPath();
+        const paths = (await client.path.get()).data! as unknown as AppPaths;
         this.postMessage({
           type: "init",
           locale: vscode.env.language,
           paths,
         });
         // セッション一覧、現在のセッション、プロバイダー一覧を送信する
-        const sessions = await this.agent.listSessions();
+        const sessions = (await client.session.list()).data! as unknown as ChatSession[];
         this.postMessage({ type: "sessions", sessions });
         this.postMessage({ type: "activeSession", session: this.activeSession });
-        const [providersData, allProviders] = await Promise.all([
-          this.agent.getProviders(),
-          this.agent.listAllProviders(),
+        const [providersResponse, allProvidersResponse] = await Promise.all([
+          client.config.providers(),
+          client.provider.list(),
         ]);
+        const providersData = providersResponse.data!;
+        const allProviders = allProvidersResponse.data! as unknown as AllProvidersData;
         // config ファイルから model を直接読み取る（config.get API は model を正しく返さない）
         let configModel: string | undefined;
         try {
@@ -87,7 +106,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
         this.postMessage({
           type: "providers",
-          providers: providersData.providers,
+          providers: providersData.providers as unknown as ProviderInfo[],
           allProviders,
           default: providersData.default,
           configModel,
@@ -99,73 +118,83 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "sendMessage": {
-        await this.agent.sendMessage(message.sessionId, message.text, {
+        await client.session.promptAsync({
+          sessionID: message.sessionId,
+          parts: this.toPromptParts(message.text, {
+            model: message.model,
+            files: message.files,
+            agent: message.agent,
+            primaryAgent: message.primaryAgent,
+            skill: message.skill,
+          }),
           model: message.model,
-          files: message.files,
-          agent: message.agent,
-          primaryAgent: message.primaryAgent,
-          skill: message.skill,
+          agent: message.primaryAgent,
         });
         break;
       }
       case "createSession": {
-        const session = await this.agent.createSession(message.title);
+        const session = (await client.session.create({ title: message.title })).data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
-        const sessions = await this.agent.listSessions();
+        const sessions = (await client.session.list()).data! as unknown as ChatSession[];
         this.postMessage({ type: "sessions", sessions });
         break;
       }
       case "listSessions": {
-        const sessions = await this.agent.listSessions();
+        const sessions = (await client.session.list()).data! as unknown as ChatSession[];
         this.postMessage({ type: "sessions", sessions });
         break;
       }
       case "selectSession": {
-        const session = await this.agent.getSession(message.sessionId);
+        const session = (await client.session.get({ sessionID: message.sessionId })).data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
-        const messages = await this.agent.getMessages(message.sessionId);
+        const messages = (await client.session.messages({ sessionID: message.sessionId }))
+          .data! as unknown as ChatMessageWithParts[];
         this.postMessage({ type: "messages", sessionId: message.sessionId, messages });
         break;
       }
       case "deleteSession": {
-        await this.agent.deleteSession(message.sessionId);
+        await client.session.delete({ sessionID: message.sessionId });
         if (this.activeSession?.id === message.sessionId) {
           this.activeSession = null;
           this.postMessage({ type: "activeSession", session: null });
         }
-        const sessions = await this.agent.listSessions();
+        const sessions = (await client.session.list()).data! as unknown as ChatSession[];
         this.postMessage({ type: "sessions", sessions });
         break;
       }
       case "getMessages": {
-        const messages = await this.agent.getMessages(message.sessionId);
+        const messages = (await client.session.messages({ sessionID: message.sessionId }))
+          .data! as unknown as ChatMessageWithParts[];
         this.postMessage({ type: "messages", sessionId: message.sessionId, messages });
         break;
       }
       case "replyPermission": {
-        await this.agent.replyPermission(message.sessionId, message.permissionId, message.response);
+        await client.permission.reply({ requestID: message.permissionId, reply: message.response });
         break;
       }
       case "replyQuestion": {
-        await this.agent.replyQuestion(message.requestId, message.answers);
+        await client.question.reply({ requestID: message.requestId, answers: message.answers });
         break;
       }
       case "rejectQuestion": {
-        await this.agent.rejectQuestion(message.requestId);
+        await client.question.reject({ requestID: message.requestId });
         break;
       }
       case "abort": {
-        await this.agent.abortSession(message.sessionId);
+        await client.session.abort({ sessionID: message.sessionId });
         break;
       }
       case "getProviders": {
-        const [providersData, allProviders, paths] = await Promise.all([
-          this.agent.getProviders(),
-          this.agent.listAllProviders(),
-          this.agent.getPath(),
+        const [providersResponse, allProvidersResponse, pathsResponse] = await Promise.all([
+          client.config.providers(),
+          client.provider.list(),
+          client.path.get(),
         ]);
+        const providersData = providersResponse.data!;
+        const allProviders = allProvidersResponse.data! as unknown as AllProvidersData;
+        const paths = pathsResponse.data! as unknown as AppPaths;
         let configModel: string | undefined;
         try {
           const raw = await fs.readFile(path.join(paths.config, "opencode.json"), "utf-8");
@@ -175,7 +204,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
         this.postMessage({
           type: "providers",
-          providers: providersData.providers,
+          providers: providersData.providers as unknown as ProviderInfo[],
           allProviders,
           default: providersData.default,
           configModel,
@@ -194,33 +223,51 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "compressSession": {
-        await this.agent.summarizeSession(message.sessionId, message.model);
+        await client.session.summarize({
+          sessionID: message.sessionId,
+          providerID: message.model?.providerID,
+          modelID: message.model?.modelID,
+        });
         break;
       }
       case "revertToMessage": {
-        const session = await this.agent.revertSession(message.sessionId, message.messageId);
+        const session = (await client.session.revert({ sessionID: message.sessionId, messageID: message.messageId }))
+          .data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
-        const messages = await this.agent.getMessages(message.sessionId);
+        const messages = (await client.session.messages({ sessionID: message.sessionId }))
+          .data! as unknown as ChatMessageWithParts[];
         this.postMessage({ type: "messages", sessionId: message.sessionId, messages });
         break;
       }
       case "editAndResend": {
         // 1. 指定メッセージまで巻き戻す（そのメッセージ以降を削除）
-        const session = await this.agent.revertSession(message.sessionId, message.messageId);
+        const session = (await client.session.revert({ sessionID: message.sessionId, messageID: message.messageId }))
+          .data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
-        const msgs = await this.agent.getMessages(message.sessionId);
+        const msgs = (await client.session.messages({ sessionID: message.sessionId }))
+          .data! as unknown as ChatMessageWithParts[];
         this.postMessage({ type: "messages", sessionId: message.sessionId, messages: msgs });
         // 2. 編集後のテキストを送信
-        await this.agent.sendMessage(message.sessionId, message.text, {
+        await client.session.promptAsync({
+          sessionID: message.sessionId,
+          parts: this.toPromptParts(message.text, {
+            model: message.model,
+            files: message.files,
+          }),
           model: message.model,
-          files: message.files,
+          agent: undefined,
         });
         break;
       }
       case "executeShell": {
-        await this.agent.executeShell(message.sessionId, message.command, message.model);
+        await client.session.shell({
+          sessionID: message.sessionId,
+          agent: "default",
+          command: message.command,
+          model: message.model,
+        });
         break;
       }
       case "openConfigFile": {
@@ -228,53 +275,56 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "openTerminal": {
-        const serverUrl = this.agent.getServerUrl();
+        const serverUrl = this.openCodeClientHandle.getServerUrl();
         if (!serverUrl) break;
         await this.platformServices.openTerminal(serverUrl, this.activeSession?.id);
         break;
       }
       case "setModel": {
-        // Delegate model persistence to the agent (OpenCode-specific config file workaround)
-        await this.agent.setModel!(message.model);
+        await this.setConfiguredModel(message.model);
         this.postMessage({ type: "modelUpdated", model: message.model, default: {} });
         break;
       }
       case "forkSession": {
         // Fork で新しいセッションを作成し、アクティブセッションを切り替える
-        const forkedSession = await this.agent.forkSession(message.sessionId, message.messageId);
+        const forkedSession = (await client.session.fork({
+          sessionID: message.sessionId,
+          messageID: message.messageId,
+        })).data! as unknown as ChatSession;
         this.activeSession = forkedSession;
         this.postMessage({ type: "activeSession", session: forkedSession });
-        const forkedSessions = await this.agent.listSessions();
+        const forkedSessions = (await client.session.list()).data! as unknown as ChatSession[];
         this.postMessage({ type: "sessions", sessions: forkedSessions });
         break;
       }
       case "getSessionDiff": {
-        const diffs = await this.agent.getSessionDiff(message.sessionId);
+        const diffs = (await client.session.diff({ sessionID: message.sessionId })).data! as unknown as FileDiff[];
         this.postMessage({ type: "sessionDiff", sessionId: message.sessionId, diffs });
         break;
       }
       case "getSessionTodos": {
-        const todos = await this.agent.getSessionTodos(message.sessionId);
+        const todos = (await client.session.todo({ sessionID: message.sessionId })).data! as unknown as TodoItem[];
         this.postMessage({ type: "sessionTodos", sessionId: message.sessionId, todos });
         break;
       }
       case "getChildSessions": {
-        const children = await this.agent.getChildSessions(message.sessionId);
+        const children = (await client.session.children({ sessionID: message.sessionId }))
+          .data! as unknown as ChatSession[];
         this.postMessage({ type: "childSessions", sessionId: message.sessionId, children });
         break;
       }
       case "getAgents": {
-        const agents = await this.agent.getAgents();
+        const agents = (await client.app.agents()).data! as unknown as AgentInfo[];
         this.postMessage({ type: "agents", agents });
         break;
       }
       case "getSkills": {
-        const skills = await this.agent.getSkills();
+        const skills = (await client.app.skills()).data! as unknown as SkillInfo[];
         this.postMessage({ type: "skills", skills });
         break;
       }
       case "shareSession": {
-        const session = await this.agent.shareSession(message.sessionId);
+        const session = (await client.session.share({ sessionID: message.sessionId })).data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
         // 共有 URL をクリップボードにコピーする
@@ -284,7 +334,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "unshareSession": {
-        const session = await this.agent.unshareSession(message.sessionId);
+        const session = (await client.session.unshare({ sessionID: message.sessionId }))
+          .data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
         break;
@@ -294,18 +345,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "undoSession": {
-        const session = await this.agent.revertSession(message.sessionId, message.messageId);
+        const session = (await client.session.revert({ sessionID: message.sessionId, messageID: message.messageId }))
+          .data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
-        const messages = await this.agent.getMessages(message.sessionId);
+        const messages = (await client.session.messages({ sessionID: message.sessionId }))
+          .data! as unknown as ChatMessageWithParts[];
         this.postMessage({ type: "messages", sessionId: message.sessionId, messages });
         break;
       }
       case "redoSession": {
-        const session = await this.agent.unrevertSession(message.sessionId);
+        const session = (await client.session.unrevert({ sessionID: message.sessionId })).data! as unknown as ChatSession;
         this.activeSession = session;
         this.postMessage({ type: "activeSession", session });
-        const messages = await this.agent.getMessages(message.sessionId);
+        const messages = (await client.session.messages({ sessionID: message.sessionId }))
+          .data! as unknown as ChatMessageWithParts[];
         this.postMessage({ type: "messages", sessionId: message.sessionId, messages });
         break;
       }
@@ -322,7 +376,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         }
         try {
-          const diffs = await this.agent.getSessionDiff(this.activeSession.id);
+          const diffs = (await client.session.diff({ sessionID: this.activeSession.id })).data! as unknown as FileDiff[];
           if (diffs.length === 0) {
             break;
           }
@@ -341,6 +395,63 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
     }
+  }
+
+  private toPromptParts(
+    text: string,
+    options?: SendMessageOptions,
+  ): Array<
+    | { type: "text"; text: string; synthetic?: boolean }
+    | { type: "file"; mime: string; url: string; filename: string }
+    | { type: "agent"; name: string }
+  > {
+    const parts: Array<
+      | { type: "text"; text: string; synthetic?: boolean }
+      | { type: "file"; mime: string; url: string; filename: string }
+      | { type: "agent"; name: string }
+    > = [];
+
+    if (options?.skill) {
+      parts.push({ type: "text", text: `/${options.skill}`, synthetic: true });
+    }
+
+    parts.push({ type: "text", text });
+
+    if (options?.files) {
+      for (const file of options.files) {
+        const absPath = path.isAbsolute(file.filePath)
+          ? file.filePath
+          : path.resolve(this.workspaceFolder, file.filePath);
+        parts.push({
+          type: "file",
+          mime: "text/plain",
+          url: `file://${absPath}`,
+          filename: file.fileName,
+        });
+      }
+    }
+
+    if (options?.agent) {
+      parts.push({ type: "agent", name: options.agent });
+    }
+
+    return parts;
+  }
+
+  private async setConfiguredModel(model: string): Promise<void> {
+    const client = this.openCodeClientHandle.getClient();
+    const paths = (await client.path.get()).data! as unknown as AppPaths;
+    const configFilePath = path.join(paths.config, "opencode.json");
+    let configJson: Record<string, unknown> = {};
+    try {
+      const raw = await fs.readFile(configFilePath, "utf-8");
+      configJson = JSON.parse(raw);
+    } catch {
+      // File may not exist yet.
+    }
+    configJson.model = model;
+    await fs.mkdir(path.dirname(configFilePath), { recursive: true });
+    await fs.writeFile(configFilePath, `${JSON.stringify(configJson, null, 2)}\n`);
   }
 
   /** アクティブなテキストエディタから FileAttachment を生成する。エディタがない場合は null を返す。 */

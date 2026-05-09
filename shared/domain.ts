@@ -1,10 +1,9 @@
 /**
  * @shared - Domain types
  *
- * Agent/platform-independent types representing the application's domain.
- * These types are shaped to match the actual data flowing through the system
- * (originally from @opencode-ai/sdk) so that the webview can consume them
- * without depending on any specific agent SDK.
+ * Shared types representing data passed between the extension host and webview.
+ * These types intentionally follow the OpenCode SDK payloads closely; the
+ * extension host forwards most SDK data without a separate mapping layer.
  */
 
 // ============================================================

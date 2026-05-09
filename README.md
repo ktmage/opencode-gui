@@ -145,8 +145,7 @@ This project is a single VS Code extension package:
 extension/
   extension.ts            # Extension entry point
   chat-view-provider.ts   # Webview panel & messaging
-  opencode-agent.ts       # OpenCode SDK integration
-  mappers.ts              # SDK to UI/domain type mappers
+  opencode-client-handle.ts # OpenCode client lifecycle
   __tests__/              # Extension host tests
 shared/                   # Shared types for extension host and webview
 webview/                  # Webview (React)
@@ -303,8 +302,7 @@ npm test
 extension/
   extension.ts            # 拡張機能エントリーポイント
   chat-view-provider.ts   # Webview パネル & メッセージング
-  opencode-agent.ts       # OpenCode SDK 連携
-  mappers.ts              # SDK から UI/ドメイン型へのマッパー
+  opencode-client-handle.ts # OpenCode client lifecycle
   __tests__/              # Extension Host テスト
 shared/                   # Extension Host と Webview の共有型
 webview/                  # Webview (React)

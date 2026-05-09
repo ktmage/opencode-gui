@@ -1,6 +1,6 @@
 /**
  * ChatViewProvider のユニットテスト。
- * OpenCodeAgent をモックし、webview メッセージハンドラの振る舞いを検証する。
+ * OpenCodeClientHandle をモックし、webview メッセージハンドラの振る舞いを検証する。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,23 +15,25 @@ import * as fs from "node:fs/promises";
 import * as vscode from "vscode";
 import { ChatViewProvider } from "../chat-view-provider";
 import type { DiffReviewManager } from "../diff-review-manager";
-import type { OpenCodeAgent } from "../opencode-agent";
+import type { OpenCodeClientHandle } from "../opencode-client-handle";
 import type { VscodePlatformServices } from "../vscode-platform-services";
 
-// --- Helper: OpenCodeAgent のモック ---
+// --- Helper: OpenCodeClientHandle のモック ---
 
 type MockedMethods<T> = {
   [K in keyof T]: T[K] extends (...args: never[]) => unknown ? ReturnType<typeof vi.fn> : T[K];
 };
 
-type MockOpenCodeAgent = MockedMethods<OpenCodeAgent>;
+type MockOpenCodeClientHandle = MockedMethods<OpenCodeClientHandle> & Record<string, ReturnType<typeof vi.fn>>;
 type MockVscodePlatformServices = MockedMethods<VscodePlatformServices>;
 
-function createMockAgent(): MockOpenCodeAgent {
-  return {
+function createMockAgent(): MockOpenCodeClientHandle {
+  const api = {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
     onEvent: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+    resubscribeEvents: vi.fn().mockResolvedValue(undefined),
+    getClient: vi.fn(),
     listSessions: vi.fn().mockResolvedValue([]),
     createSession: vi.fn().mockResolvedValue({ id: "new-sess", title: "New" }),
     getSession: vi.fn().mockResolvedValue({ id: "sess-1" }),
@@ -65,7 +67,112 @@ function createMockAgent(): MockOpenCodeAgent {
     getToolIds: vi.fn().mockResolvedValue([]),
     getServerUrl: vi.fn().mockReturnValue("http://localhost:12345"),
     setModel: vi.fn().mockResolvedValue(undefined),
-  } as MockOpenCodeAgent;
+  } as any;
+
+  api.getClient.mockReturnValue({
+    session: {
+      list: vi.fn(async () => ({ data: await api.listSessions() })),
+      create: vi.fn(async ({ title }: { title?: string }) => ({ data: await api.createSession(title) })),
+      get: vi.fn(async ({ sessionID }: { sessionID: string }) => ({ data: await api.getSession(sessionID) })),
+      delete: vi.fn(async ({ sessionID }: { sessionID: string }) => api.deleteSession(sessionID)),
+      fork: vi.fn(async ({ sessionID, messageID }: { sessionID: string; messageID?: string }) => ({
+        data: await api.forkSession(sessionID, messageID),
+      })),
+      revert: vi.fn(async ({ sessionID, messageID }: { sessionID: string; messageID: string }) => ({
+        data: await api.revertSession(sessionID, messageID),
+      })),
+      unrevert: vi.fn(async ({ sessionID }: { sessionID: string }) => ({
+        data: await api.unrevertSession(sessionID),
+      })),
+      summarize: vi.fn(
+        async ({
+          sessionID,
+          providerID,
+          modelID,
+        }: {
+          sessionID: string;
+          providerID?: string;
+          modelID?: string;
+        }) => api.summarizeSession(sessionID, providerID && modelID ? { providerID, modelID } : undefined),
+      ),
+      share: vi.fn(async ({ sessionID }: { sessionID: string }) => ({ data: await api.shareSession(sessionID) })),
+      unshare: vi.fn(async ({ sessionID }: { sessionID: string }) => ({ data: await api.unshareSession(sessionID) })),
+      messages: vi.fn(async ({ sessionID }: { sessionID: string }) => ({ data: await api.getMessages(sessionID) })),
+      promptAsync: vi.fn(
+        async ({
+          sessionID,
+          parts,
+          model,
+          agent: primaryAgent,
+        }: {
+          sessionID: string;
+          parts: Array<{ type: string; text?: string; synthetic?: boolean; url?: string; filename?: string; name?: string }>;
+          model?: unknown;
+          agent?: string;
+        }) => {
+          const textPart = parts.find((part) => part.type === "text" && !part.synthetic);
+          const skillPart = parts.find((part) => part.type === "text" && part.synthetic);
+          const fileParts = parts.filter((part) => part.type === "file");
+          const agentPart = parts.find((part) => part.type === "agent");
+          const options: Record<string, unknown> = {};
+          if (model !== undefined) options.model = model;
+          if (fileParts.length > 0) {
+            options.files = fileParts.map((part) => ({
+              filePath: part.url?.replace("file:///workspace/", "") ?? "",
+              fileName: part.filename ?? "",
+            }));
+          }
+          if (agentPart?.name) options.agent = agentPart.name;
+          if (primaryAgent) options.primaryAgent = primaryAgent;
+          if (skillPart?.text) options.skill = skillPart.text.replace(/^\//, "");
+          return api.sendMessage(sessionID, textPart?.text ?? "", options as never);
+        },
+      ),
+      abort: vi.fn(async ({ sessionID }: { sessionID: string }) => api.abortSession(sessionID)),
+      shell: vi.fn(async ({ sessionID, command, model }: { sessionID: string; command: string; model?: unknown }) =>
+        api.executeShell(sessionID, command, model as never),
+      ),
+      children: vi.fn(async ({ sessionID }: { sessionID: string }) => ({ data: await api.getChildSessions(sessionID) })),
+      todo: vi.fn(async ({ sessionID }: { sessionID: string }) => ({ data: await api.getSessionTodos(sessionID) })),
+      diff: vi.fn(async ({ sessionID }: { sessionID: string }) => ({ data: await api.getSessionDiff(sessionID) })),
+    },
+    config: {
+      providers: vi.fn(async () => ({ data: await api.getProviders() })),
+      get: vi.fn(async () => ({ data: await api.getConfig() })),
+      update: vi.fn(async ({ config }: { config: unknown }) => api.updateConfig(config as never)),
+    },
+    provider: {
+      list: vi.fn(async () => ({ data: await api.listAllProviders() })),
+    },
+    permission: {
+      reply: vi.fn(async ({ requestID, reply }: { requestID: string; reply: never }) =>
+        api.replyPermission("", requestID, reply),
+      ),
+    },
+    question: {
+      reply: vi.fn(async ({ requestID, answers }: { requestID: string; answers: string[] }) =>
+        api.replyQuestion(requestID, answers),
+      ),
+      reject: vi.fn(async ({ requestID }: { requestID: string }) => api.rejectQuestion(requestID)),
+    },
+    app: {
+      agents: vi.fn(async () => ({ data: await api.getAgents() })),
+      skills: vi.fn(async () => ({ data: await api.getSkills() })),
+    },
+    path: {
+      get: vi.fn(async () => ({ data: await api.getPath() })),
+    },
+    mcp: {
+      status: vi.fn(async () => ({ data: await api.getMcpStatus() })),
+      connect: vi.fn(async ({ name }: { name: string }) => api.connectMcp(name)),
+      disconnect: vi.fn(async ({ name }: { name: string }) => api.disconnectMcp(name)),
+    },
+    tool: {
+      ids: vi.fn(async () => ({ data: (await api.getToolIds()).map((tool: { id: string }) => tool.id) })),
+    },
+  });
+
+  return api as MockOpenCodeClientHandle;
 }
 
 // --- Helper: VscodePlatformServices のモック ---
@@ -150,6 +257,7 @@ function setupProvider(
   const provider = new ChatViewProvider(
     extensionUri as never,
     mockAgent as never,
+    "/workspace",
     ps as never,
     drm as never,
     difitAvailable,
@@ -513,8 +621,9 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("replyPermission", () => {
-    it("should call agent.replyPermission with 3 args", async () => {
+    it("should call SDK permission.reply", async () => {
       const { sendMessage } = setupProvider(mockAgent);
+      const client = (mockAgent as any).getClient();
 
       await sendMessage({
         type: "replyPermission",
@@ -523,7 +632,7 @@ describe("ChatViewProvider", () => {
         response: "always",
       });
 
-      expect(mockAgent.replyPermission).toHaveBeenCalledWith("sess-1", "perm-1", "always");
+      expect(client.permission.reply).toHaveBeenCalledWith({ requestID: "perm-1", reply: "always" });
     });
   });
 
@@ -780,11 +889,16 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("setModel", () => {
-    it("should delegate to agent.setModel and send modelUpdated", async () => {
+    it("should update opencode config file and send modelUpdated", async () => {
+      vi.mocked(fs.readFile).mockResolvedValue('{"theme":"dark"}');
       const { postMessage, sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "setModel", model: "anthropic/claude-4" });
 
-      expect(mockAgent.setModel).toHaveBeenCalledWith("anthropic/claude-4");
+      const writeCall = vi.mocked(fs.writeFile).mock.calls[0];
+      expect(JSON.parse((writeCall[1] as string).trim())).toEqual({
+        theme: "dark",
+        model: "anthropic/claude-4",
+      });
       expect(postMessage).toHaveBeenCalledWith({
         type: "modelUpdated",
         model: "anthropic/claude-4",
@@ -1184,6 +1298,7 @@ describe("ChatViewProvider", () => {
       const provider = new ChatViewProvider(
         extensionUri as never,
         mockAgent as never,
+        "/workspace",
         createMockPlatformServices() as never,
         createMockDiffReviewManager() as never,
         false,
