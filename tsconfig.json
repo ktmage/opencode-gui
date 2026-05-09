@@ -1,22 +1,9 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
     "lib": ["ES2022"],
-    "outDir": "./dist",
-    "rootDir": ".",
-    "strict": true,
-    "baseUrl": ".",
-    "paths": {
-      "@shared": ["shared/index.ts"]
-    },
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": false,
-    "sourceMap": true,
-    "jsx": "react-jsx"
+    "types": ["node", "vscode", "vitest/globals"],
+    "rootDir": "."
   },
   "include": ["extension/**/*", "shared/**/*"],
   "exclude": ["node_modules", "dist", "webview"]
