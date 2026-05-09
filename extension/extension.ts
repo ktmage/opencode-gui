@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import * as vscode from "vscode";
 import { ChatViewProvider } from "./chat-view-provider";
 import { DiffReviewManager } from "./diff-review-manager";
+import { OpenCodeBinaryNotFoundError } from "./errors";
 import { t } from "./i18n";
 import { OpenCodeClientHandle } from "./opencode-client-handle";
 import { VscodePlatformServices } from "./vscode-platform-services";
@@ -29,10 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
   try {
     await openCodeClientHandle.connect();
   } catch (error) {
-    const isNotFound =
-      error instanceof Error &&
-      (("code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") || error.message.includes("ENOENT"));
-    if (isNotFound) {
+    if (error instanceof OpenCodeBinaryNotFoundError) {
       vscode.window.showWarningMessage(t("warnings.opencodeNotFound"));
       return;
     }

@@ -132,35 +132,23 @@ describe("extension", () => {
   });
 
   // ============================================================
-  // activate - ENOENT エラー（opencode コマンドが見つからない）
+  // activate - opencode バイナリ未検出
   // ============================================================
 
-  describe("activate() - ENOENT error", () => {
-    it("should show warning for ENOENT code", async () => {
-      const error = new Error("spawn opencode ENOENT") as NodeJS.ErrnoException;
-      error.code = "ENOENT";
-      mockConnect.mockRejectedValueOnce(error);
-
+  describe("activate() - OpenCodeBinaryNotFoundError", () => {
+    it("OpenCodeBinaryNotFoundError を受けたら警告を表示し webview を登録しない", async () => {
+      // importExtension() 内で vi.resetModules() が走るため、
+      // 同一クラス識別子になるよう importExtension() の後で errors を読み込む。
       const extensionModule = await importExtension();
+      const { OpenCodeBinaryNotFoundError } = await import("../errors");
+      mockConnect.mockRejectedValueOnce(new OpenCodeBinaryNotFoundError(new Error("spawn opencode ENOENT")));
+
       const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
 
       await extensionModule.activate(context as never);
 
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("opencode"));
-      // webview provider が登録されない
       expect(vscode.window.registerWebviewViewProvider).not.toHaveBeenCalled();
-    });
-
-    it("should show warning for ENOENT in message", async () => {
-      const error = new Error("ENOENT: command not found");
-      mockConnect.mockRejectedValueOnce(error);
-
-      const extensionModule = await importExtension();
-      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
-
-      await extensionModule.activate(context as never);
-
-      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("opencode"));
     });
   });
 

@@ -1,16 +1,17 @@
 import { createOpencodeClient, createOpencodeServer, type OpencodeClient } from "@opencode-ai/sdk/v2";
 import type { AgentEvent, Disposable } from "@shared";
+import { OpenCodeBinaryNotFoundError, OpenCodeClientNotConnectedError } from "./errors";
 
 /** OpenCode から受信したエージェントイベントを処理するコールバック。 */
 type EventHandler = (event: AgentEvent) => void;
 
-/** OpenCode クライアントが未接続の状態で要求された場合のエラー。 */
-export class OpenCodeClientNotConnectedError extends Error {
-  /** エラー名とメッセージを初期化する。 */
-  constructor() {
-    super("OpenCode クライアントが接続されていません。先に connect() を呼び出してください。");
-    this.name = "OpenCodeClientNotConnectedError";
-  }
+/** spawn 失敗が ENOENT（実行ファイル未検出）を示しているか判定する。 */
+function isBinaryNotFoundError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  // Node 標準の NodeJS.ErrnoException は code フィールドを持つ。
+  // SDK 側でラップされて code が落ちているケースに備えて message も見る。
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === "ENOENT" || error.message.includes("ENOENT");
 }
 
 /**
@@ -23,9 +24,21 @@ export class OpenCodeClientHandle {
   private sseAbortController: AbortController | undefined;
   private listeners: Set<EventHandler> = new Set();
 
-  /** OpenCode サーバーを起動し、SDK クライアントとイベント購読を初期化する。 */
+  /**
+   * OpenCode サーバーを起動し、SDK クライアントとイベント購読を初期化する。
+   *
+   * @throws {@link OpenCodeBinaryNotFoundError} `opencode` バイナリが PATH 上に存在しない場合。
+   */
   async connect(): Promise<void> {
-    const server = await createOpencodeServer({ port: 0 });
+    let server: { url: string; close(): void };
+    try {
+      server = await createOpencodeServer({ port: 0 });
+    } catch (error) {
+      if (isBinaryNotFoundError(error)) {
+        throw new OpenCodeBinaryNotFoundError(error);
+      }
+      throw error;
+    }
     this.server = server;
     this.client = createOpencodeClient({ baseUrl: server.url });
     this.subscribeToEvents();

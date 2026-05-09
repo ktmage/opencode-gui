@@ -26,7 +26,8 @@ vi.mock("@opencode-ai/sdk/v2", () => ({
 }));
 
 import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk/v2";
-import { OpenCodeClientHandle, OpenCodeClientNotConnectedError } from "../opencode-client-handle";
+import { OpenCodeBinaryNotFoundError, OpenCodeClientNotConnectedError } from "../errors";
+import { OpenCodeClientHandle } from "../opencode-client-handle";
 
 describe("OpenCodeClientHandle", () => {
   let handle: OpenCodeClientHandle;
@@ -56,6 +57,27 @@ describe("OpenCodeClientHandle", () => {
       await handle.connect();
 
       expect(mockClient.event.subscribe).toHaveBeenCalled();
+    });
+
+    it("createOpencodeServer が ENOENT を投げた場合は OpenCodeBinaryNotFoundError に変換する", async () => {
+      const enoent = Object.assign(new Error("spawn opencode ENOENT"), { code: "ENOENT" });
+      vi.mocked(createOpencodeServer).mockRejectedValueOnce(enoent);
+
+      await expect(handle.connect()).rejects.toBeInstanceOf(OpenCodeBinaryNotFoundError);
+    });
+
+    it("code が落ちていても message に ENOENT を含めば OpenCodeBinaryNotFoundError に変換する", async () => {
+      // SDK 側でラップされて code フィールドが失われるケースを再現する。
+      vi.mocked(createOpencodeServer).mockRejectedValueOnce(new Error("Failed to spawn: ENOENT"));
+
+      await expect(handle.connect()).rejects.toBeInstanceOf(OpenCodeBinaryNotFoundError);
+    });
+
+    it("ENOENT 以外のエラーはそのまま伝播する", async () => {
+      const other = new Error("port already in use");
+      vi.mocked(createOpencodeServer).mockRejectedValueOnce(other);
+
+      await expect(handle.connect()).rejects.toBe(other);
     });
   });
 
