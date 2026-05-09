@@ -145,8 +145,10 @@ export const es: LocaleSchema = {
   // Context menu sections
   "input.section.files": "Archivos",
   "input.section.agents": "Sub-agentes",
+  "input.section.skills": "Habilidades",
   "input.section.shell": "Modo Shell",
 
   // AgentMention
   "input.noAgents": "No hay sub-agentes disponibles",
+  "input.noSkills": "No hay habilidades disponibles",
 };

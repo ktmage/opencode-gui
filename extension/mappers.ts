@@ -12,10 +12,10 @@ import type {
   Message,
   Part,
   Provider,
-  FileDiff as SdkFileDiff,
   McpStatus as SdkMcpStatus,
   Path as SdkPath,
   Session,
+  SnapshotFileDiff,
   Todo,
 } from "@opencode-ai/sdk/v2";
 
@@ -98,11 +98,17 @@ export function mapProviders(providers: Provider[]): ProviderInfo[] {
 // FileDiff
 // ============================================================
 
-export function mapFileDiff(diff: SdkFileDiff): FileDiff {
-  return diff as unknown as FileDiff;
+export function mapFileDiff(diff: SnapshotFileDiff): FileDiff {
+  return {
+    file: diff.file,
+    patch: diff.patch,
+    additions: diff.additions,
+    deletions: diff.deletions,
+    status: diff.status,
+  };
 }
 
-export function mapFileDiffs(diffs: SdkFileDiff[]): FileDiff[] {
+export function mapFileDiffs(diffs: SnapshotFileDiff[]): FileDiff[] {
   return diffs.map(mapFileDiff);
 }
 
@@ -111,7 +117,11 @@ export function mapFileDiffs(diffs: SdkFileDiff[]): FileDiff[] {
 // ============================================================
 
 export function mapTodo(todo: Todo): TodoItem {
-  return todo as unknown as TodoItem;
+  return {
+    content: todo.content,
+    status: todo.status,
+    priority: todo.priority,
+  };
 }
 
 export function mapTodos(todos: Todo[]): TodoItem[] {

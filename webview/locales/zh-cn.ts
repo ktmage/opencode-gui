@@ -145,8 +145,10 @@ export const zhCn: LocaleSchema = {
   // Context menu sections
   "input.section.files": "文件",
   "input.section.agents": "子智能体",
+  "input.section.skills": "技能",
   "input.section.shell": "Shell 模式",
 
   // AgentMention
   "input.noAgents": "没有可用的子智能体",
+  "input.noSkills": "没有可用的技能",
 };

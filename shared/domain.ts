@@ -368,7 +368,7 @@ export type FileAttachment = {
 // File Diff
 // ============================================================
 
-export type FileDiff = {
+export type FileContentDiff = {
   file: string;
   before: string;
   after: string;
@@ -376,12 +376,21 @@ export type FileDiff = {
   deletions: number;
 };
 
+export type FilePatchDiff = {
+  file: string;
+  patch: string;
+  additions: number;
+  deletions: number;
+  status?: "added" | "deleted" | "modified";
+};
+
+export type FileDiff = FileContentDiff | FilePatchDiff;
+
 // ============================================================
 // Todo
 // ============================================================
 
 export type TodoItem = {
-  id: string;
   content: string;
   status: string;
   priority: string;
@@ -491,4 +500,30 @@ export type ToolListItem = {
 
 export type Disposable = {
   dispose(): void;
+};
+
+// ============================================================
+// Webview persisted UI state
+// ============================================================
+
+export type SoundEventType = "responseComplete" | "permissionRequest" | "questionAsked" | "error";
+
+export type SoundEventSetting = {
+  enabled?: boolean;
+  volume?: number;
+};
+
+export type SoundSettings = Partial<Record<SoundEventType, SoundEventSetting>>;
+
+export type UIPersistedState = {
+  localeSetting?: string;
+  inputHistory?: string[];
+  soundSettings?: SoundSettings;
+};
+
+export type IBridge = {
+  postMessage(message: import("./protocol").UIToHostMessage): void;
+  onMessage(handler: (message: import("./protocol").HostToUIMessage) => void): Disposable;
+  getPersistedState(): UIPersistedState | null;
+  setPersistedState(state: UIPersistedState): void;
 };

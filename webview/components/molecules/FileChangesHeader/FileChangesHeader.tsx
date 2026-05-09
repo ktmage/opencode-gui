@@ -11,7 +11,7 @@ import styles from "./FileChangesHeader.module.css";
 type Props = {
   diffs: FileDiff[];
   onOpenDiffEditor: (filePath: string, before: string, after: string) => void;
-  difitAvailable: boolean;
+  difitAvailable?: boolean;
 };
 
 /** ファイルパスから basename を取得 */
@@ -29,9 +29,15 @@ function dirname(filePath: string): string {
 
 /** ファイルの変更種別を判定 */
 function getFileStatus(diff: FileDiff): "added" | "deleted" | "modified" {
+  if ("status" in diff && diff.status) return diff.status;
+  if (!("before" in diff) || !("after" in diff)) return "modified";
   if (diff.before === "" && diff.after !== "") return "added";
   if (diff.before !== "" && diff.after === "") return "deleted";
   return "modified";
+}
+
+function hasContentDiff(diff: FileDiff): diff is FileDiff & { before: string; after: string } {
+  return "before" in diff && "after" in diff;
 }
 
 function FileChangeItem({
@@ -84,9 +90,12 @@ function FileChangeItem({
           className={styles.openButton}
           onClick={(e) => {
             e.stopPropagation();
-            onOpenDiffEditor(diff.file, diff.before, diff.after);
+            if (hasContentDiff(diff)) {
+              onOpenDiffEditor(diff.file, diff.before, diff.after);
+            }
           }}
           title={t["fileChanges.openDiff"]}
+          disabled={!hasContentDiff(diff)}
         >
           <ExternalLinkIcon />
         </IconButton>
@@ -105,14 +114,14 @@ function FileChangeItem({
       </div>
       {expanded && (
         <div className={styles.diffBody}>
-          <DiffView oldStr={diff.before} newStr={diff.after} />
+          {hasContentDiff(diff) ? <DiffView oldStr={diff.before} newStr={diff.after} /> : <pre>{diff.patch}</pre>}
         </div>
       )}
     </div>
   );
 }
 
-export function FileChangesHeader({ diffs, onOpenDiffEditor, difitAvailable }: Props) {
+export function FileChangesHeader({ diffs, onOpenDiffEditor, difitAvailable = false }: Props) {
   const t = useLocale();
   const [expanded, setExpanded] = useState(false);
 

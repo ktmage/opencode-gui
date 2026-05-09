@@ -97,6 +97,9 @@ export class DiffReviewManager implements vscode.Disposable {
 export function fileDiffsToUnifiedDiff(diffs: FileDiff[]): string {
   return diffs
     .map((d) => {
+      if ("patch" in d) {
+        return d.patch;
+      }
       const patch = createTwoFilesPatch(`a/${d.file}`, `b/${d.file}`, d.before, d.after);
       // jsdiff は "===...===" ヘッダーを出力するが difit は "diff --git" を期待する
       return patch.replace(/^={10,}\n/, `diff --git a/${d.file} b/${d.file}\n`);

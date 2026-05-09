@@ -1,6 +1,6 @@
 import type { ChatSession } from "@shared";
 import { useLocale } from "../../../locales";
-import type { en } from "../../../locales/en";
+import type { LocaleSchema } from "../../../locales/en";
 import { IconButton } from "../../atoms/IconButton";
 import { DeleteIcon, FileIcon } from "../../atoms/icons";
 import styles from "./SessionList.module.css";
@@ -13,7 +13,7 @@ type Props = {
   onClose: () => void;
 };
 
-export function formatRelativeTime(timestamp: number, t: typeof en): string {
+export function formatRelativeTime(timestamp: number, t: LocaleSchema): string {
   const now = Date.now();
   const diff = now - timestamp;
   const seconds = Math.floor(diff / 1000);

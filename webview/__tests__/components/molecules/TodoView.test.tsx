@@ -4,7 +4,7 @@ import { TodoView } from "../../../components/molecules/TodoView";
 import type { TodoItem } from "../../../utils/todo";
 
 const sampleTodos: TodoItem[] = [
-  { content: "Task 1", status: "completed", priority: undefined },
+  { content: "Task 1", status: "completed", priority: "medium" },
   { content: "Task 2", status: "in_progress", priority: "high" },
   { content: "Task 3", status: "pending", priority: "low" },
 ];

@@ -167,8 +167,8 @@ describe("mapProviders", () => {
 // ============================================================
 
 describe("mapFileDiff", () => {
-  it("should pass through file diff data", () => {
-    const diff = { path: "src/index.ts", before: "old", after: "new" };
+  it("should map SDK snapshot diff data", () => {
+    const diff = { file: "src/index.ts", patch: "diff --git a/src/index.ts b/src/index.ts", additions: 1, deletions: 1 };
     const result = mapFileDiff(diff as never);
     expect(result).toEqual(diff);
   });
@@ -177,8 +177,8 @@ describe("mapFileDiff", () => {
 describe("mapFileDiffs", () => {
   it("should map an array of file diffs", () => {
     const diffs = [
-      { path: "a.ts", before: "", after: "new" },
-      { path: "b.ts", before: "old", after: "" },
+      { file: "a.ts", patch: "diff --git a/a.ts b/a.ts", additions: 1, deletions: 0 },
+      { file: "b.ts", patch: "diff --git a/b.ts b/b.ts", additions: 0, deletions: 1 },
     ];
     const result = mapFileDiffs(diffs as never);
     expect(result).toHaveLength(2);
@@ -194,8 +194,8 @@ describe("mapFileDiffs", () => {
 // ============================================================
 
 describe("mapTodo", () => {
-  it("should pass through todo data as TodoItem", () => {
-    const todo = { id: "t1", text: "Fix bug", done: false };
+  it("should map SDK todo data as TodoItem", () => {
+    const todo = { content: "Fix bug", status: "pending", priority: "high" };
     const result = mapTodo(todo as never);
     expect(result).toEqual(todo);
   });
@@ -204,8 +204,8 @@ describe("mapTodo", () => {
 describe("mapTodos", () => {
   it("should map an array of todos", () => {
     const todos = [
-      { id: "t1", text: "A" },
-      { id: "t2", text: "B" },
+      { content: "A", status: "pending", priority: "medium" },
+      { content: "B", status: "completed", priority: "low" },
     ];
     const result = mapTodos(todos as never);
     expect(result).toHaveLength(2);

@@ -93,7 +93,7 @@ export function useSoundNotification() {
           }
           break;
         }
-        case "permission.updated":
+        case "permission.asked":
           eventType = "permissionRequest";
           break;
         case "question.asked":

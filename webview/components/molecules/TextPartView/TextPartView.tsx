@@ -1,5 +1,5 @@
 import type { TextPart } from "@shared";
-import DOMPurify from "dompurify";
+import DOMPurify, { type Config as DOMPurifyConfig } from "dompurify";
 import hljs from "highlight.js/lib/common";
 import { Marked, type Renderer, type Tokens } from "marked";
 import { useCallback, useMemo } from "react";
@@ -50,7 +50,7 @@ const linkRenderer: Partial<Renderer> = {
 };
 
 // DOMPurify で SVG 要素とカスタム data 属性を許可する設定
-const PURIFY_CONFIG: DOMPurify.Config = {
+const PURIFY_CONFIG: DOMPurifyConfig = {
   ADD_TAGS: ["svg", "path", "rect", "circle", "ellipse", "polygon", "text", "linearGradient", "stop", "defs"],
   ADD_ATTR: [
     "viewBox",

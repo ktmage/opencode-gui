@@ -145,8 +145,10 @@ export const ru: LocaleSchema = {
   // Context menu sections
   "input.section.files": "Файлы",
   "input.section.agents": "Субагенты",
+  "input.section.skills": "Навыки",
   "input.section.shell": "Режим Shell",
 
   // AgentMention
   "input.noAgents": "Нет доступных субагентов",
+  "input.noSkills": "Нет доступных навыков",
 };

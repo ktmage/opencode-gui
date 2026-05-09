@@ -8,6 +8,10 @@ type Props = {
   parts: ToolPart[];
 };
 
+function formatOutput(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
 /**
  * ユーザーが ! プレフィクスで実行したシェルコマンドの結果をターミナル風に表示する。
  * 通常の ToolPartView（折りたたみカード）ではなく、コマンドと出力を一体で見せる。
@@ -25,7 +29,7 @@ export function ShellResultView({ parts }: Props) {
         const command = (input?.command as string) ?? "";
         const isRunning = state.status === "running" || state.status === "pending";
         const isError = state.status === "error";
-        const output = state.status === "completed" ? state.output : null;
+        const output = state.status === "completed" ? formatOutput(state.output) : null;
         const error = state.status === "error" ? state.error : null;
         return { command, output, error, isRunning, isError };
       });

@@ -47,6 +47,10 @@ function isFileCreateInput(input: Record<string, unknown>): boolean {
   return typeof input.content === "string" && getFilePath(input) !== null && typeof input.oldString !== "string";
 }
 
+function formatOutput(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
 function ActionIcon({ category }: { category: ToolCategory }) {
   switch (category) {
     case "read":
@@ -190,7 +194,7 @@ export function ToolPartView({ part }: Props) {
             <FileCreateView content={input.content as string} />
           ) : (
             <>
-              {isCompleted && state.output && <pre className={styles.output}>{state.output}</pre>}
+              {isCompleted && state.output && <pre className={styles.output}>{formatOutput(state.output)}</pre>}
               {isError && <pre className={`${styles.output} ${styles.outputError}`}>{state.error}</pre>}
               {isActive && input && <pre className={styles.output}>{JSON.stringify(input, null, 2)}</pre>}
             </>

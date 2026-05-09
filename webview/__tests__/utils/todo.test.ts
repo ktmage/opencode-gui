@@ -7,7 +7,10 @@ describe("parseTodos", () => {
     it("TodoItem 配列を返すこと", () => {
       const json = JSON.stringify([{ content: "task1" }, { content: "task2", status: "done" }]);
       const result = parseTodos(json);
-      expect(result).toEqual([{ content: "task1" }, { content: "task2", status: "done" }]);
+      expect(result).toEqual([
+        { content: "task1", status: "pending", priority: "medium" },
+        { content: "task2", status: "done", priority: "medium" },
+      ]);
     });
   });
 
@@ -15,7 +18,7 @@ describe("parseTodos", () => {
   context("オブジェクト配列を直接渡した場合", () => {
     it("TodoItem 配列を返すこと", () => {
       const arr = [{ content: "task1", priority: "high" }];
-      expect(parseTodos(arr)).toEqual(arr);
+      expect(parseTodos(arr)).toEqual([{ content: "task1", status: "pending", priority: "high" }]);
     });
   });
 
@@ -23,7 +26,7 @@ describe("parseTodos", () => {
   context("todos キーを持つラッパーオブジェクトの場合", () => {
     it("todos 配列を返すこと", () => {
       const data = { todos: [{ content: "a" }] };
-      expect(parseTodos(data)).toEqual([{ content: "a" }]);
+      expect(parseTodos(data)).toEqual([{ content: "a", status: "pending", priority: "medium" }]);
     });
   });
 
@@ -31,7 +34,7 @@ describe("parseTodos", () => {
   context("items キーを持つラッパーオブジェクトの場合", () => {
     it("items 配列を返すこと", () => {
       const data = { items: [{ content: "b" }] };
-      expect(parseTodos(data)).toEqual([{ content: "b" }]);
+      expect(parseTodos(data)).toEqual([{ content: "b", status: "pending", priority: "medium" }]);
     });
   });
 

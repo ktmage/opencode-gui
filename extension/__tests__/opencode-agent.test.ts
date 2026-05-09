@@ -484,7 +484,7 @@ describe("OpenCodeAgent", () => {
 
   describe("getSessionTodos()", () => {
     it("should call client.session.todo()", async () => {
-      const todos = [{ id: "t1", text: "Fix bug" }];
+      const todos = [{ content: "Fix bug", status: "pending", priority: "high" }];
       mockClient.session.todo.mockResolvedValue({ data: todos });
       await agent.connect();
 
@@ -548,7 +548,7 @@ describe("OpenCodeAgent", () => {
 
   describe("getSessionDiff()", () => {
     it("should call client.session.diff()", async () => {
-      const diffs = [{ path: "file.ts", before: "a", after: "b" }];
+      const diffs = [{ file: "file.ts", patch: "diff --git a/file.ts b/file.ts", additions: 1, deletions: 1 }];
       mockClient.session.diff.mockResolvedValue({ data: diffs });
       await agent.connect();
 

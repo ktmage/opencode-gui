@@ -95,16 +95,16 @@ describe("useSoundNotification", () => {
     });
   });
 
-  // permission.updated triggers permissionRequest
-  context("permission.updated イベントを受信した場合", () => {
+  // permission.asked triggers permissionRequest
+  context("permission.asked イベントを受信した場合", () => {
     // plays sound
     it("サウンドが再生されること", () => {
       const { result } = renderHook(() => useSoundNotification());
 
       act(() => {
         result.current.handleSoundEvent({
-          type: "permission.updated",
-          properties: { id: "perm1", title: "allow bash" },
+          type: "permission.asked",
+          properties: { id: "perm1", sessionID: "s1", permission: "execute", patterns: ["bash"], metadata: {}, always: [] },
         } as unknown as AgentEvent);
       });
 
@@ -140,8 +140,8 @@ describe("useSoundNotification", () => {
 
       act(() => {
         result.current.handleSoundEvent({
-          type: "permission.updated",
-          properties: { id: "perm1", title: "allow bash" },
+          type: "permission.asked",
+          properties: { id: "perm1", sessionID: "s1", permission: "execute", patterns: ["bash"], metadata: {}, always: [] },
         } as unknown as AgentEvent);
       });
 

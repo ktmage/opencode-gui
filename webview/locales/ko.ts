@@ -145,8 +145,10 @@ export const ko: LocaleSchema = {
   // Context menu sections
   "input.section.files": "파일",
   "input.section.agents": "서브 에이전트",
+  "input.section.skills": "스킬",
   "input.section.shell": "셸 모드",
 
   // AgentMention
   "input.noAgents": "사용 가능한 서브 에이전트가 없습니다",
+  "input.noSkills": "사용 가능한 스킬이 없습니다",
 };

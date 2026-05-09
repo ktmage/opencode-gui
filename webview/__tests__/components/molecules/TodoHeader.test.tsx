@@ -4,9 +4,9 @@ import { TodoHeader } from "../../../components/molecules/TodoHeader";
 import type { TodoItem } from "../../../utils/todo";
 
 const sampleTodos: TodoItem[] = [
-  { content: "Task 1", status: "completed", priority: undefined },
+  { content: "Task 1", status: "completed", priority: "medium" },
   { content: "Task 2", status: "in_progress", priority: "high" },
-  { content: "Task 3", status: "pending", priority: undefined },
+  { content: "Task 3", status: "pending", priority: "medium" },
 ];
 
 describe("TodoHeader", () => {
@@ -53,8 +53,8 @@ describe("TodoHeader", () => {
     // shows full completion count
     it("全完了数を表示すること", () => {
       const allDone: TodoItem[] = [
-        { content: "Done 1", status: "completed", priority: undefined },
-        { content: "Done 2", status: "done", priority: undefined },
+        { content: "Done 1", status: "completed", priority: "medium" },
+        { content: "Done 2", status: "done", priority: "medium" },
       ];
       const { container } = render(<TodoHeader todos={allDone} />);
       expect(container.querySelector(".count")?.textContent).toBe("2/2");

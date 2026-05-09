@@ -145,8 +145,10 @@ export const ptBr: LocaleSchema = {
   // Context menu sections
   "input.section.files": "Arquivos",
   "input.section.agents": "Sub-agentes",
+  "input.section.skills": "Habilidades",
   "input.section.shell": "Modo Shell",
 
   // AgentMention
   "input.noAgents": "Nenhum sub-agente disponível",
+  "input.noSkills": "Nenhuma habilidade disponível",
 };
