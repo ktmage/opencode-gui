@@ -84,15 +84,15 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/vscode": "^1.100.0",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.1",
     "@vscode/vsce": "^3.7.1",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "jsdom": "^28.1.0",
     "marked": "^17.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0",
+    "vite": "^8.0.11",
     "vitest": "^4.0.18"
   },
   "dependencies": {
