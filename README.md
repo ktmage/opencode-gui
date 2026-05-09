@@ -85,8 +85,7 @@ Search for **OpenCodeGUI** in the VS Code Extensions view (`Ctrl+Shift+X` / `Cmd
 
 #### Prerequisites
 
-- Node.js v22+
-- npm
+- Node.js v24+ and npm
 
 #### Setup
 
@@ -243,8 +242,7 @@ VS Code の拡張機能ビュー（`Ctrl+Shift+X` / `Cmd+Shift+X`）で **OpenCo
 
 #### 前提条件
 
-- Node.js v22+
-- npm
+- Node.js v24+ と npm
 
 #### セットアップ
 

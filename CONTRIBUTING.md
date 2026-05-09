@@ -22,8 +22,7 @@ This project itself is developed primarily through AI-assisted coding, and we we
 
 #### Prerequisites
 
-- Node.js v22+
-- npm
+- Node.js v24+ and npm
 - [OpenCode](https://github.com/anomalyco/opencode) installed with LLM provider authentication configured
 
 #### Setup
@@ -105,8 +104,7 @@ By submitting a pull request, you agree that your contributions are licensed und
 
 #### 前提条件
 
-- Node.js v22+
-- npm
+- Node.js v24+ と npm
 - [OpenCode](https://github.com/anomalyco/opencode) がインストール済みで、LLM プロバイダの認証が完了していること
 
 #### セットアップ
