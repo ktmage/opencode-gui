@@ -1,6 +1,0 @@
-packages:
-  - "packages/*"
-  - "packages/agents/*"
-  - "packages/platforms/*"
-onlyBuiltDependencies:
-  - esbuild

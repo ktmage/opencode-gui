@@ -1,0 +1,6 @@
+{
+  "OpenCodeGUI requires an open workspace folder.": "Для работы OpenCodeGUI требуется открытая папка рабочей области.",
+  "OpenCodeGUI: \"opencode\" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode": "OpenCodeGUI: команда \"opencode\" не найдена. Сначала установите OpenCode: https://github.com/anomalyco/opencode",
+  "OpenCodeGUI: An unexpected error occurred while starting OpenCode. See the developer log for details.": "OpenCodeGUI: при запуске OpenCode произошла непредвиденная ошибка. Подробности см. в журнале разработчика.",
+  "OpenCodeGUI: \"difit\" command not found. The diff review feature will be disabled. Install difit to enable it.": "OpenCodeGUI: команда \"difit\" не найдена. Функция просмотра diff будет отключена. Установите difit, чтобы включить её."
+}

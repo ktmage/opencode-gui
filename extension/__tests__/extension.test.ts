@@ -1,0 +1,272 @@
+/**
+ * extension.ts (activate / deactivate) のユニットテスト。
+ * ChatPanel と OpenCodeClientHandle をモックし、起動・停止の振る舞いを検証する。
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// --- モックの準備 ---
+
+// difit の存在確認 (`which difit`) をモックで制御する。
+// 既定では「見つかった」相当（callback に error なしで応答）にしておき、
+// 必要なテストで `mockExecFile.mockImplementationOnce(...)` で個別に上書きする。
+const mockExecFile = vi.fn((_cmd: string, _args: string[], cb: (error: unknown) => void) => {
+  cb(null);
+});
+vi.mock("node:child_process", () => ({
+  execFile: (cmd: string, args: string[], cb: (error: unknown) => void) => mockExecFile(cmd, args, cb),
+}));
+
+const mockConnect = vi.fn().mockResolvedValue(undefined);
+const mockDisconnect = vi.fn();
+
+// モジュールスコープで `new OpenCodeClientHandle()` が呼ばれるため、
+// コンストラクタとして機能するクラスを返す必要がある。
+function createMockAgentClass() {
+  return class MockOpenCodeClientHandle {
+    connect = mockConnect;
+    disconnect = mockDisconnect;
+    workspaceFolder: string | undefined = undefined;
+  };
+}
+
+// ChatPanel のモック — コンストラクタとして使われる
+function createMockChatPanelClass() {
+  return Object.assign(class MockChatPanel {}, { viewType: "opencode.chatView" });
+}
+
+import * as vscode from "vscode";
+
+describe("extension", () => {
+  let originalCwd: string;
+  let chdirSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    originalCwd = process.cwd();
+    // process.chdir を no-op にする（/workspace/project は実在しないため）
+    chdirSpy = vi.spyOn(process, "chdir").mockImplementation(() => {});
+    // workspaceFolders をデフォルトで設定
+    vi.mocked(vscode.workspace).workspaceFolders = [{ uri: { fsPath: "/workspace/project", scheme: "file" } }] as never;
+  });
+
+  afterEach(() => {
+    chdirSpy.mockRestore();
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+  });
+
+  /**
+   * extension.ts はモジュールスコープで `new OpenCodeClientHandle()` を実行する。
+   * テストごとに新しいモジュールインスタンスが必要なので、毎回 resetModules して再 import する。
+   */
+  async function importExtension() {
+    vi.resetModules();
+
+    vi.doMock("../opencode-client-handle", () => ({
+      OpenCodeClientHandle: createMockAgentClass(),
+    }));
+    vi.doMock("../chat-panel", () => ({
+      ChatPanel: createMockChatPanelClass(),
+    }));
+
+    return import("../extension");
+  }
+
+  // ============================================================
+  // activate - 正常系
+  // ============================================================
+
+  describe("activate() - normal", () => {
+    it("should connect, register webview provider and diff providers", async () => {
+      const extensionModule = await importExtension();
+      const subscriptions: { dispose: () => void }[] = [];
+      const context = {
+        extensionUri: { fsPath: "/extension" },
+        subscriptions,
+      };
+
+      await extensionModule.activate(context as never);
+
+      // connect が呼ばれた
+      expect(mockConnect).toHaveBeenCalled();
+
+      // webview provider 登録
+      expect(vscode.window.registerWebviewViewProvider).toHaveBeenCalledWith("opencode.chatView", expect.anything());
+
+      // diff content provider 登録（2つ: before と after）
+      expect(vscode.workspace.registerTextDocumentContentProvider).toHaveBeenCalledTimes(2);
+      expect(vscode.workspace.registerTextDocumentContentProvider).toHaveBeenCalledWith(
+        "opencode-diff-before",
+        expect.anything(),
+      );
+      expect(vscode.workspace.registerTextDocumentContentProvider).toHaveBeenCalledWith(
+        "opencode-diff-after",
+        expect.anything(),
+      );
+
+      // subscriptions に push された (webview provider + 2 diff providers + Disposable for disconnect)
+      expect(subscriptions.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it("should change cwd to workspace folder and restore it", async () => {
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      // chdir が workspaceFolder で呼ばれ、その後元に戻されること
+      const chdirCalls = chdirSpy.mock.calls.map((c: string[]) => c[0]);
+      expect(chdirCalls[0]).toBe("/workspace/project");
+      // finally ブロックで元の cwd に戻される
+      expect(chdirCalls.length).toBe(2);
+    });
+  });
+
+  // ============================================================
+  // activate - ワークスペースなし
+  // ============================================================
+
+  describe("activate() - no workspace", () => {
+    it("should show warning and return early", async () => {
+      vi.mocked(vscode.workspace).workspaceFolders = undefined as never;
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("workspace"));
+      expect(mockConnect).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // activate - opencode バイナリ未検出
+  // ============================================================
+
+  describe("activate() - OpenCodeBinaryNotFoundError", () => {
+    it("OpenCodeBinaryNotFoundError を受けたら警告を表示し webview を登録しない", async () => {
+      // importExtension() 内で vi.resetModules() が走るため、
+      // 同一クラス識別子になるよう importExtension() の後で errors を読み込む。
+      const extensionModule = await importExtension();
+      const { OpenCodeBinaryNotFoundError } = await import("../errors");
+      mockConnect.mockRejectedValueOnce(new OpenCodeBinaryNotFoundError(new Error("spawn opencode ENOENT")));
+
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("opencode"));
+      expect(vscode.window.registerWebviewViewProvider).not.toHaveBeenCalled();
+    });
+
+    it("汎用 OpenCodeError を受けたらエラー通知 + ログ出力し webview を登録しない", async () => {
+      const extensionModule = await importExtension();
+      const { OpenCodeError } = await import("../errors");
+      const original = new Error("port already in use");
+      mockConnect.mockRejectedValueOnce(new OpenCodeError(original));
+
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showErrorMessage).toHaveBeenCalled();
+      // OpenCodeError をそのまま console.error に渡す（cause は error 自身に含まれる）。
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.any(Error));
+      expect(consoleErrorSpy.mock.calls[0]?.[0]).toMatchObject({ cause: original });
+      expect(vscode.window.registerWebviewViewProvider).not.toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
+  // ============================================================
+  // activate - difit の有無による分岐
+  // ============================================================
+
+  describe("activate() - difit availability", () => {
+    it("difit が見つからない場合は info メッセージを表示する", async () => {
+      // `which difit` が失敗（exit code 非 0）した状況を模す。
+      mockExecFile.mockImplementationOnce((_cmd, _args, cb) => cb(new Error("not found")));
+
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining("difit"));
+    });
+
+    it("difit が見つかった場合は info メッセージを表示しない", async () => {
+      mockExecFile.mockImplementationOnce((_cmd, _args, cb) => cb(null));
+
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await extensionModule.activate(context as never);
+
+      expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // activate - 非 ENOENT エラー
+  // ============================================================
+
+  describe("activate() - non-ENOENT error", () => {
+    it("should rethrow non-ENOENT errors", async () => {
+      const error = new Error("Connection refused");
+      mockConnect.mockRejectedValueOnce(error);
+
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+
+      await expect(extensionModule.activate(context as never)).rejects.toThrow("Connection refused");
+    });
+  });
+
+  // ============================================================
+  // deactivate
+  // ============================================================
+
+  describe("deactivate()", () => {
+    it("should call agent.disconnect()", async () => {
+      const extensionModule = await importExtension();
+
+      extensionModule.deactivate();
+
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // diff content provider
+  // ============================================================
+
+  describe("diff content provider", () => {
+    it("should decode URI query to provide document content", async () => {
+      const extensionModule = await importExtension();
+      const context = { extensionUri: { fsPath: "/extension" }, subscriptions: [] };
+      await extensionModule.activate(context as never);
+
+      // registerTextDocumentContentProvider に渡されたプロバイダーを取得
+      const registerCalls = vi.mocked(vscode.workspace.registerTextDocumentContentProvider).mock.calls;
+      const beforeProvider = registerCalls.find((c) => c[0] === "opencode-diff-before")?.[1];
+
+      expect(beforeProvider).toBeDefined();
+
+      // URI query にエンコードされたコンテンツを渡す
+      const content = "const a = 1;\nconst b = 2;";
+      const uri = {
+        scheme: "opencode-diff-before",
+        path: "src/index.ts",
+        query: encodeURIComponent(content),
+      };
+
+      const result = beforeProvider!.provideTextDocumentContent(uri as never, undefined as never);
+      expect(result).toBe(content);
+    });
+  });
+});

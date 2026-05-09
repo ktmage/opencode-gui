@@ -85,27 +85,26 @@ Search for **OpenCodeGUI** in the VS Code Extensions view (`Ctrl+Shift+X` / `Cmd
 
 #### Prerequisites
 
-- Node.js v22+
-- [pnpm](https://pnpm.io/) v10+
+- Node.js v24+ and npm
 
 #### Setup
 
 ```sh
-pnpm install
-pnpm run build
+npm install
+npm run build
 ```
 
 #### Build
 
 ```sh
-# Full build (all packages)
-pnpm run build
+# Full build
+npm run build
 
-# Extension only (from packages/platforms/vscode)
-pnpm --filter opencodegui run build:ext
+# Extension only
+npm run build:extension
 
-# Webview only (from packages/platforms/vscode)
-pnpm --filter opencodegui run build:webview
+# Webview only
+npm run build:webview
 ```
 
 #### Watch Mode
@@ -114,63 +113,49 @@ Open two terminals and run each:
 
 ```sh
 # Terminal 1: Extension watch
-pnpm --filter opencodegui run watch:ext
+npm run watch:extension
 
 # Terminal 2: Webview watch
-pnpm --filter opencodegui run watch:webview
+npm run watch:webview
 ```
 
 #### Lint & Format
 
 ```sh
-pnpm run check
+npm run check
 ```
 
 #### Debug
 
-1. Run `pnpm run build`
+1. Run `npm run build`
 2. Press `F5` in VS Code to launch the Extension Development Host
 3. Click the OpenCode icon in the sidebar to open the chat panel
 
 #### Test
 
 ```sh
-pnpm test
+npm test
 ```
 
 ### Project Structure
 
-This project is a pnpm monorepo with the following packages:
+This project is a single VS Code extension package:
 
 ```
-packages/
-  core/                   # @opencodegui/core — Domain types, interfaces & protocol
-    src/
-      domain.ts           # Domain types (messages, sessions, tools, permissions)
-      agent.interface.ts  # IAgent interface
-      platform.interface.ts # IPlatformServices interface
-      protocol.ts         # Webview ↔ Extension messaging protocol
-
-  agents/
-    opencode/             # @opencodegui/agent-opencode — OpenCode SDK adapter
-      src/
-        opencode-agent.ts # IAgent implementation for OpenCode
-        mappers.ts        # SDK ↔ domain type mappers
-
-  platforms/
-    vscode/               # opencodegui — VS Code extension
-      src/
-        extension.ts      # Extension entry point
-        chat-view-provider.ts   # Webview panel & messaging
-        vscode-platform-services.ts # IPlatformServices implementation
-      webview/            # Webview (Browser, React)
-        App.tsx           # State management & SSE event handling
-        components/       # React components (Atoms / Molecules / Organisms)
-        hooks/            # Custom React hooks
-        contexts/         # React Context providers
-        locales/          # i18n locale files
-        utils/            # Utility functions
-        __tests__/        # Tests (unit, scenario)
+extension/
+  extension.ts            # Extension entry point
+  chat-view-provider.ts   # Webview panel & messaging
+  opencode-client-handle.ts # OpenCode client lifecycle
+  __tests__/              # Extension host tests
+shared/                   # Shared types for extension host and webview
+webview/                  # Webview (React)
+  App.tsx                 # State management & SSE event handling
+  components/             # React components
+  hooks/                  # Custom React hooks
+  contexts/               # React Context providers
+  locales/                # i18n locale files
+  utils/                  # Utility functions
+  __tests__/              # Webview tests
 ```
 
 ### Contributing
@@ -257,27 +242,26 @@ VS Code の拡張機能ビュー（`Ctrl+Shift+X` / `Cmd+Shift+X`）で **OpenCo
 
 #### 前提条件
 
-- Node.js v22+
-- [pnpm](https://pnpm.io/) v10+
+- Node.js v24+ と npm
 
 #### セットアップ
 
 ```sh
-pnpm install
-pnpm run build
+npm install
+npm run build
 ```
 
 #### ビルド
 
 ```sh
-# 全体ビルド（全パッケージ）
-pnpm run build
+# 全体ビルド
+npm run build
 
-# Extension のみ（packages/platforms/vscode から）
-pnpm --filter opencodegui run build:ext
+# Extension のみ
+npm run build:extension
 
-# Webview のみ（packages/platforms/vscode から）
-pnpm --filter opencodegui run build:webview
+# Webview のみ
+npm run build:webview
 ```
 
 #### Watch モード
@@ -286,63 +270,49 @@ pnpm --filter opencodegui run build:webview
 
 ```sh
 # Terminal 1: Extension watch
-pnpm --filter opencodegui run watch:ext
+npm run watch:extension
 
 # Terminal 2: Webview watch
-pnpm --filter opencodegui run watch:webview
+npm run watch:webview
 ```
 
 #### リント & フォーマット
 
 ```sh
-pnpm run check
+npm run check
 ```
 
 #### デバッグ実行
 
-1. `pnpm run build` でビルドする
+1. `npm run build` でビルドする
 2. VS Code で `F5` を押して Extension Development Host を起動する
 3. サイドバーの OpenCode アイコンをクリックしてチャットパネルを開く
 
 #### テスト
 
 ```sh
-pnpm test
+npm test
 ```
 
 ### プロジェクト構造
 
-本プロジェクトは pnpm モノレポ構成です。
+本プロジェクトは単一の VS Code 拡張パッケージです。
 
 ```
-packages/
-  core/                   # @opencodegui/core — ドメイン型・インターフェース・プロトコル
-    src/
-      domain.ts           # ドメイン型（メッセージ、セッション、ツール、パーミッション）
-      agent.interface.ts  # IAgent インターフェース
-      platform.interface.ts # IPlatformServices インターフェース
-      protocol.ts         # Webview ↔ Extension メッセージングプロトコル
-
-  agents/
-    opencode/             # @opencodegui/agent-opencode — OpenCode SDK アダプター
-      src/
-        opencode-agent.ts # OpenCode 用 IAgent 実装
-        mappers.ts        # SDK ↔ ドメイン型マッパー
-
-  platforms/
-    vscode/               # opencodegui — VS Code 拡張機能
-      src/
-        extension.ts      # 拡張機能エントリーポイント
-        chat-view-provider.ts   # Webview パネル & メッセージング
-        vscode-platform-services.ts # IPlatformServices 実装
-      webview/            # Webview (Browser, React)
-        App.tsx           # 状態管理 & SSE イベントハンドリング
-        components/       # React コンポーネント（Atoms / Molecules / Organisms）
-        hooks/            # カスタム React フック
-        contexts/         # React Context プロバイダー
-        locales/          # i18n ロケールファイル
-        utils/            # ユーティリティ関数
-        __tests__/        # テスト（単体、シナリオ）
+extension/
+  extension.ts            # 拡張機能エントリーポイント
+  chat-view-provider.ts   # Webview パネル & メッセージング
+  opencode-client-handle.ts # OpenCode client lifecycle
+  __tests__/              # Extension Host テスト
+shared/                   # Extension Host と Webview の共有型
+webview/                  # Webview (React)
+  App.tsx                 # 状態管理 & SSE イベントハンドリング
+  components/             # React コンポーネント
+  hooks/                  # カスタム React フック
+  contexts/               # React Context プロバイダー
+  locales/                # i18n locale files
+  utils/                  # ユーティリティ関数
+  __tests__/              # Webview テスト
 ```
 
 ### コントリビュート

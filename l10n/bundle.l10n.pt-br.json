@@ -1,0 +1,6 @@
+{
+  "OpenCodeGUI requires an open workspace folder.": "O OpenCodeGUI requer uma pasta de espaço de trabalho aberta.",
+  "OpenCodeGUI: \"opencode\" command not found. Please install OpenCode first: https://github.com/anomalyco/opencode": "OpenCodeGUI: comando \"opencode\" não encontrado. Instale o OpenCode primeiro: https://github.com/anomalyco/opencode",
+  "OpenCodeGUI: An unexpected error occurred while starting OpenCode. See the developer log for details.": "OpenCodeGUI: ocorreu um erro inesperado ao iniciar o OpenCode. Consulte o log do desenvolvedor para obter detalhes.",
+  "OpenCodeGUI: \"difit\" command not found. The diff review feature will be disabled. Install difit to enable it.": "OpenCodeGUI: comando \"difit\" não encontrado. O recurso de revisão de diff será desabilitado. Instale o difit para habilitá-lo."
+}

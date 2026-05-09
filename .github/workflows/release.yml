@@ -18,32 +18,24 @@ jobs:
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - name: Install dependencies
-        run: pnpm install
+        run: npm ci
 
       - name: Build
-        run: pnpm build
+        run: npm run build
 
       - name: Test
-        run: pnpm test:all
-
-      - name: Copy root files for extension packaging
-        run: cp LICENSE CHANGELOG.md THIRD_PARTY_NOTICES.md packages/platforms/vscode/
+        run: npm run test:all
 
       - name: Package extension
-        run: pnpm --filter opencodegui run package
-        working-directory: .
+        run: npm run package
 
       - name: Publish to Marketplace
-        run: pnpm --filter opencodegui run publish
+        run: npm run publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Upload .vsix to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: packages/platforms/vscode/*.vsix
+          files: "*.vsix"
