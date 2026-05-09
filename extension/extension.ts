@@ -23,25 +23,8 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  // SDK の createOpencodeServer は cwd オプションを持たないため、
-  // プロセスのカレントディレクトリを変更してからサーバーを起動する。
-  const originalCwd = process.cwd();
-  process.chdir(workspaceFolder);
-  try {
-    await openCodeClientHandle.connect();
-  } catch (error) {
-    if (error instanceof OpenCodeBinaryNotFoundError) {
-      vscode.window.showWarningMessage(t("warnings.opencodeNotFound"));
-      return;
-    }
-    if (error instanceof OpenCodeError) {
-      console.error(error);
-      vscode.window.showErrorMessage(t("errors.unexpected"));
-      return;
-    }
-    throw error;
-  } finally {
-    process.chdir(originalCwd);
+  if (!(await connectOpenCode(workspaceFolder))) {
+    return;
   }
 
   const platformServices = new VscodePlatformServices();
@@ -84,6 +67,37 @@ export async function activate(context: vscode.ExtensionContext) {
  */
 export function deactivate() {
   openCodeClientHandle.disconnect();
+}
+
+/**
+ * 指定したワークスペースフォルダで OpenCode サーバーへ接続する。
+ * 失敗種別に応じてユーザー通知を出し、`activate` を続行すべきかを真偽値で返す。
+ *
+ * @returns 接続成功時 true。通知済みで activate を中止すべき場合 false。
+ * @throws OpenCode に由来しない想定外のエラー。
+ */
+async function connectOpenCode(workspaceFolder: string): Promise<boolean> {
+  // SDK の createOpencodeServer は cwd オプションを持たないため、
+  // プロセスのカレントディレクトリを変更してからサーバーを起動する。
+  const originalCwd = process.cwd();
+  process.chdir(workspaceFolder);
+  try {
+    await openCodeClientHandle.connect();
+    return true;
+  } catch (error) {
+    if (error instanceof OpenCodeBinaryNotFoundError) {
+      vscode.window.showWarningMessage(t("warnings.opencodeNotFound"));
+      return false;
+    }
+    if (error instanceof OpenCodeError) {
+      console.error(error);
+      vscode.window.showErrorMessage(t("errors.unexpected"));
+      return false;
+    }
+    throw error;
+  } finally {
+    process.chdir(originalCwd);
+  }
 }
 
 /** PATH 上に difit コマンドが存在するかチェックする */
