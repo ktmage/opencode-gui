@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@shared": ["src/shared/index.ts"]
+    },
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+    "jsx": "react-jsx"
+  },
+  "include": ["./**/*"],
+  "exclude": ["node_modules"]
+}
