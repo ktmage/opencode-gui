@@ -319,15 +319,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
       case "openDiffReview": {
         if (!this.activeSession) {
-          console.warn("[openDiffReview] No active session");
           break;
         }
         try {
-          console.log("[openDiffReview] Getting diffs for session:", this.activeSession.id);
           const diffs = await this.agent.getSessionDiff(this.activeSession.id);
-          console.log("[openDiffReview] Got diffs:", diffs.length, "files");
           if (diffs.length === 0) {
-            console.warn("[openDiffReview] No diffs returned from agent");
             break;
           }
           await this.diffReviewManager.start(diffs, message.focusFile);
