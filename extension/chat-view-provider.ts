@@ -18,7 +18,6 @@ import type {
 import * as vscode from "vscode";
 import type { DiffReviewManager } from "./diff-review-manager";
 import type { OpenCodeClientHandle } from "./opencode-client-handle";
-import type { VscodePlatformServices } from "./vscode-platform-services";
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencode.chatView";
@@ -32,7 +31,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri: vscode.Uri,
     private readonly openCodeClientHandle: OpenCodeClientHandle,
     private readonly workspaceFolder: string,
-    private readonly platformServices: VscodePlatformServices,
     private readonly diffReviewManager: DiffReviewManager,
     private readonly difitAvailable: boolean,
   ) {}
@@ -213,12 +211,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
       // --- Platform operations ---
       case "getOpenEditors": {
-        const files = await this.platformServices.getOpenEditors();
+        const files = await this.getOpenEditors();
         this.postMessage({ type: "openEditors", files });
         break;
       }
       case "searchWorkspaceFiles": {
-        const files = await this.platformServices.searchWorkspaceFiles(message.query);
+        const files = await this.searchWorkspaceFiles(message.query);
         this.postMessage({ type: "workspaceFiles", files });
         break;
       }
@@ -271,13 +269,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "openConfigFile": {
-        await this.platformServices.openConfigFile(message.filePath);
+        await this.openConfigFile(message.filePath);
         break;
       }
       case "openTerminal": {
         const serverUrl = this.openCodeClientHandle.getServerUrl();
         if (!serverUrl) break;
-        await this.platformServices.openTerminal(serverUrl, this.activeSession?.id);
+        await this.openTerminal(serverUrl, this.activeSession?.id);
         break;
       }
       case "setModel": {
@@ -329,7 +327,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this.postMessage({ type: "activeSession", session });
         // 共有 URL をクリップボードにコピーする
         if (session.share?.url) {
-          await this.platformServices.copyToClipboard(session.share.url);
+          await this.copyToClipboard(session.share.url);
         }
         break;
       }
@@ -341,7 +339,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "copyToClipboard": {
-        await this.platformServices.copyToClipboard(message.text);
+        await this.copyToClipboard(message.text);
         break;
       }
       case "undoSession": {
@@ -364,11 +362,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break;
       }
       case "openDiffEditor": {
-        await this.platformServices.openDiffEditor(message.filePath, message.before, message.after);
+        await this.openDiffEditor(message.filePath, message.before, message.after);
         break;
       }
       case "openFile": {
-        await this.platformServices.openFile(message.filePath, message.line);
+        await this.openFile(message.filePath, message.line);
         break;
       }
       case "openDiffReview": {
@@ -465,6 +463,89 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       ? path.relative(workspaceFolder.fsPath, uri.fsPath)
       : path.basename(uri.fsPath);
     return { filePath: relativePath, fileName: path.basename(uri.fsPath) };
+  }
+
+  // --- VS Code API 呼び出し（webview 依頼の処理用） ---
+
+  /** 仮想ドキュメントを使って VS Code のネイティブ diff エディタを開く。 */
+  private async openDiffEditor(filePath: string, before: string, after: string): Promise<void> {
+    const beforeUri = vscode.Uri.parse(`opencode-diff-before:${filePath}?${encodeURIComponent(before)}`);
+    const afterUri = vscode.Uri.parse(`opencode-diff-after:${filePath}?${encodeURIComponent(after)}`);
+    const fileName = path.basename(filePath);
+    await vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri, `${fileName} (Changes)`);
+  }
+
+  private async copyToClipboard(text: string): Promise<void> {
+    await vscode.env.clipboard.writeText(text);
+  }
+
+  private async openTerminal(serverUrl: string, sessionId?: string): Promise<void> {
+    const args = ["attach", serverUrl];
+    if (sessionId) {
+      args.push("--session", sessionId);
+    }
+    const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const terminal = vscode.window.createTerminal({
+      name: "OpenCode",
+      cwd: wsFolder,
+    });
+    terminal.show();
+    terminal.sendText(`opencode ${args.map((a) => JSON.stringify(a)).join(" ")}`);
+  }
+
+  /** 設定ファイルを開く。存在しない場合は初期内容で新規作成する。 */
+  private async openConfigFile(filePath: string): Promise<void> {
+    const uri = vscode.Uri.file(filePath);
+    try {
+      await vscode.workspace.fs.stat(uri);
+    } catch {
+      const dir = vscode.Uri.file(filePath.substring(0, filePath.lastIndexOf("/")));
+      await vscode.workspace.fs.createDirectory(dir);
+      await vscode.workspace.fs.writeFile(uri, Buffer.from('{\n  "$schema": "https://opencode.ai/config.json"\n}\n'));
+    }
+    const doc = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(doc);
+  }
+
+  /** ファイルを開く。`line` 指定時は該当行へジャンプする。 */
+  private async openFile(filePath: string, line?: number): Promise<void> {
+    const uri = vscode.Uri.file(filePath);
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(doc);
+    if (line !== undefined && line >= 1) {
+      const position = new vscode.Position(line - 1, 0);
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+    }
+  }
+
+  /** ワークスペース内のファイルを部分一致で検索する。 */
+  private async searchWorkspaceFiles(query: string): Promise<FileAttachment[]> {
+    const pattern = query ? `**/*${query}*` : "**/*";
+    const uris = await vscode.workspace.findFiles(pattern, "**/node_modules/**", 20);
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    return uris.map((uri) => {
+      const relativePath = workspaceFolder
+        ? path.relative(workspaceFolder.fsPath, uri.fsPath)
+        : path.basename(uri.fsPath);
+      return { filePath: relativePath, fileName: path.basename(uri.fsPath) };
+    });
+  }
+
+  /** 現在開かれているテキストエディタの一覧を取得する（重複除去あり）。 */
+  private async getOpenEditors(): Promise<FileAttachment[]> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    return vscode.window.tabGroups.all
+      .flatMap((group) => group.tabs)
+      .filter((tab) => tab.input instanceof vscode.TabInputText)
+      .map((tab) => {
+        const uri = (tab.input as vscode.TabInputText).uri;
+        const relativePath = workspaceFolder
+          ? path.relative(workspaceFolder.fsPath, uri.fsPath)
+          : path.basename(uri.fsPath);
+        return { filePath: relativePath, fileName: path.basename(uri.fsPath) };
+      })
+      .filter((f, i, arr) => arr.findIndex((a) => a.filePath === f.filePath) === i);
   }
 
   private postMessage(message: HostToUIMessage): void {

@@ -105,3 +105,32 @@ export const ViewColumn = {
   Two: 2,
   Three: 3,
 };
+
+// --- Position / Selection / Range / TextEditorRevealType ---
+export class Position {
+  constructor(
+    public line: number,
+    public character: number,
+  ) {}
+}
+
+export class Selection {
+  constructor(
+    public anchor: Position,
+    public active: Position,
+  ) {}
+}
+
+export class Range {
+  constructor(
+    public start: Position,
+    public end: Position,
+  ) {}
+}
+
+export const TextEditorRevealType = {
+  Default: 0,
+  InCenter: 1,
+  InCenterIfOutsideViewport: 2,
+  AtTop: 3,
+};

@@ -16,7 +16,6 @@ import * as vscode from "vscode";
 import { ChatViewProvider } from "../chat-view-provider";
 import type { DiffReviewManager } from "../diff-review-manager";
 import type { OpenCodeClientHandle } from "../opencode-client-handle";
-import type { VscodePlatformServices } from "../vscode-platform-services";
 
 // --- Helper: OpenCodeClientHandle のモック ---
 
@@ -25,7 +24,6 @@ type MockedMethods<T> = {
 };
 
 type MockOpenCodeClientHandle = MockedMethods<OpenCodeClientHandle> & Record<string, ReturnType<typeof vi.fn>>;
-type MockVscodePlatformServices = MockedMethods<VscodePlatformServices>;
 
 function createMockAgent(): MockOpenCodeClientHandle {
   const api = {
@@ -175,20 +173,6 @@ function createMockAgent(): MockOpenCodeClientHandle {
   return api as MockOpenCodeClientHandle;
 }
 
-// --- Helper: VscodePlatformServices のモック ---
-
-function createMockPlatformServices(): MockVscodePlatformServices {
-  return {
-    openDiffEditor: vi.fn().mockResolvedValue(undefined),
-    copyToClipboard: vi.fn().mockResolvedValue(undefined),
-    openTerminal: vi.fn().mockResolvedValue(undefined),
-    openConfigFile: vi.fn().mockResolvedValue(undefined),
-    openFile: vi.fn().mockResolvedValue(undefined),
-    searchWorkspaceFiles: vi.fn().mockResolvedValue([]),
-    getOpenEditors: vi.fn().mockResolvedValue([]),
-  } as MockVscodePlatformServices;
-}
-
 // --- Helper: DiffReviewManager のモック ---
 
 function createMockDiffReviewManager(): {
@@ -247,18 +231,15 @@ function createMockWebviewView() {
 
 function setupProvider(
   mockAgent: ReturnType<typeof createMockAgent>,
-  mockPlatformServices?: ReturnType<typeof createMockPlatformServices>,
   mockDiffReviewManager?: ReturnType<typeof createMockDiffReviewManager>,
   difitAvailable = false,
 ) {
   const extensionUri = { fsPath: "/extension" };
-  const ps = mockPlatformServices ?? createMockPlatformServices();
   const drm = mockDiffReviewManager ?? createMockDiffReviewManager();
   const provider = new ChatViewProvider(
     extensionUri as never,
     mockAgent as never,
     "/workspace",
-    ps as never,
     drm as never,
     difitAvailable,
   );
@@ -268,7 +249,7 @@ function setupProvider(
     {} as never,
     { isCancellationRequested: false, onCancellationRequested: vi.fn() } as never,
   );
-  return { provider, platformServices: ps, diffReviewManager: drm, ...mock };
+  return { provider, diffReviewManager: drm, ...mock };
 }
 
 describe("ChatViewProvider", () => {
@@ -700,17 +681,16 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("getOpenEditors", () => {
-    it("should delegate to platformServices.getOpenEditors and send result", async () => {
-      const mockPS = createMockPlatformServices();
-      mockPS.getOpenEditors.mockResolvedValue([
-        { filePath: "src/index.ts", fileName: "index.ts" },
-        { filePath: "src/app.ts", fileName: "app.ts" },
-      ]);
+    it("タブ一覧から FileAttachment[] を組み立てて postMessage する", async () => {
+      // workspaceFolders を設定。/workspace 以下の相対パスを取りたい。
+      vi.mocked(vscode.workspace).workspaceFolders = [{ uri: { fsPath: "/workspace" } }] as never;
+      const tabA = { input: new vscode.TabInputText({ fsPath: "/workspace/src/index.ts", scheme: "file" } as never) };
+      const tabB = { input: new vscode.TabInputText({ fsPath: "/workspace/src/app.ts", scheme: "file" } as never) };
+      vi.mocked(vscode.window).tabGroups = { all: [{ tabs: [tabA, tabB] }] } as never;
 
-      const { postMessage, sendMessage } = setupProvider(mockAgent, mockPS);
+      const { postMessage, sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "getOpenEditors" });
 
-      expect(mockPS.getOpenEditors).toHaveBeenCalled();
       expect(postMessage).toHaveBeenCalledWith({
         type: "openEditors",
         files: [
@@ -726,14 +706,16 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("searchWorkspaceFiles", () => {
-    it("should delegate to platformServices.searchWorkspaceFiles and send result", async () => {
-      const mockPS = createMockPlatformServices();
-      mockPS.searchWorkspaceFiles.mockResolvedValue([{ filePath: "src/index.ts", fileName: "index.ts" }]);
+    it("findFiles の結果を FileAttachment[] に変換して postMessage する", async () => {
+      vi.mocked(vscode.workspace).workspaceFolders = [{ uri: { fsPath: "/workspace" } }] as never;
+      vi.mocked(vscode.workspace.findFiles).mockResolvedValueOnce([
+        { fsPath: "/workspace/src/index.ts" } as never,
+      ]);
 
-      const { postMessage, sendMessage } = setupProvider(mockAgent, mockPS);
+      const { postMessage, sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "searchWorkspaceFiles", query: "index" });
 
-      expect(mockPS.searchWorkspaceFiles).toHaveBeenCalledWith("index");
+      expect(vscode.workspace.findFiles).toHaveBeenCalledWith("**/*index*", "**/node_modules/**", 20);
       expect(postMessage).toHaveBeenCalledWith({
         type: "workspaceFiles",
         files: [{ filePath: "src/index.ts", fileName: "index.ts" }],
@@ -837,12 +819,27 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("openConfigFile", () => {
-    it("should delegate to platformServices.openConfigFile", async () => {
-      const mockPS = createMockPlatformServices();
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+    it("既存のファイルを開く（stat 成功時は新規作成しない）", async () => {
+      vi.mocked(vscode.workspace.fs.stat).mockResolvedValueOnce(undefined as never);
+      const { sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "openConfigFile", filePath: "/home/.config/opencode/opencode.json" });
 
-      expect(mockPS.openConfigFile).toHaveBeenCalledWith("/home/.config/opencode/opencode.json");
+      expect(vscode.workspace.fs.stat).toHaveBeenCalled();
+      expect(vscode.workspace.fs.createDirectory).not.toHaveBeenCalled();
+      expect(vscode.workspace.fs.writeFile).not.toHaveBeenCalled();
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+      expect(vscode.window.showTextDocument).toHaveBeenCalled();
+    });
+
+    it("ファイル未存在時はディレクトリ作成 + 初期内容の書き込みを行ってから開く", async () => {
+      vi.mocked(vscode.workspace.fs.stat).mockRejectedValueOnce(new Error("not found"));
+      const { sendMessage } = setupProvider(mockAgent);
+      await sendMessage({ type: "openConfigFile", filePath: "/home/.config/opencode/opencode.json" });
+
+      expect(vscode.workspace.fs.createDirectory).toHaveBeenCalled();
+      expect(vscode.workspace.fs.writeFile).toHaveBeenCalled();
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+      expect(vscode.window.showTextDocument).toHaveBeenCalled();
     });
   });
 
@@ -851,36 +848,36 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("openTerminal", () => {
-    it("should do nothing when serverUrl is undefined", async () => {
+    it("serverUrl が未取得なら何もしない", async () => {
       mockAgent.getServerUrl.mockReturnValue(undefined);
-      const mockPS = createMockPlatformServices();
 
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+      const { sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "openTerminal" });
 
-      expect(mockPS.openTerminal).not.toHaveBeenCalled();
+      expect(vscode.window.createTerminal).not.toHaveBeenCalled();
     });
 
-    it("should delegate to platformServices.openTerminal with serverUrl", async () => {
-      const mockPS = createMockPlatformServices();
+    it("serverUrl が取得できれば opencode attach コマンドを送る", async () => {
+      const sendText = vi.fn();
+      vi.mocked(vscode.window.createTerminal).mockReturnValueOnce({ show: vi.fn(), sendText } as never);
 
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+      const { sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "openTerminal" });
 
-      expect(mockPS.openTerminal).toHaveBeenCalledWith("http://localhost:12345", undefined);
+      expect(vscode.window.createTerminal).toHaveBeenCalledWith({ name: "OpenCode", cwd: "/workspace" });
+      expect(sendText).toHaveBeenCalledWith('opencode "attach" "http://localhost:12345"');
     });
 
-    it("should include sessionId when activeSession exists", async () => {
-      const mockPS = createMockPlatformServices();
+    it("activeSession がある場合は --session も渡す", async () => {
+      const sendText = vi.fn();
+      vi.mocked(vscode.window.createTerminal).mockReturnValueOnce({ show: vi.fn(), sendText } as never);
       mockAgent.createSession.mockResolvedValue({ id: "sess-1" });
 
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
-      // まずアクティブセッションを設定
+      const { sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "createSession" });
-
       await sendMessage({ type: "openTerminal" });
 
-      expect(mockPS.openTerminal).toHaveBeenCalledWith("http://localhost:12345", "sess-1");
+      expect(sendText).toHaveBeenCalledWith('opencode "attach" "http://localhost:12345" "--session" "sess-1"');
     });
   });
 
@@ -1019,27 +1016,25 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("shareSession", () => {
-    it("should update activeSession and copy share URL via platformServices", async () => {
+    it("activeSession を更新し share URL をクリップボードにコピーする", async () => {
       const session = { id: "sess-1", share: { url: "https://share.example.com/abc" } };
       mockAgent.shareSession.mockResolvedValue(session);
-      const mockPS = createMockPlatformServices();
 
-      const { postMessage, sendMessage } = setupProvider(mockAgent, mockPS);
+      const { postMessage, sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "shareSession", sessionId: "sess-1" });
 
       expect(postMessage).toHaveBeenCalledWith({ type: "activeSession", session });
-      expect(mockPS.copyToClipboard).toHaveBeenCalledWith("https://share.example.com/abc");
+      expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith("https://share.example.com/abc");
     });
 
-    it("should not copy to clipboard when share.url is absent", async () => {
+    it("share.url が無ければクリップボードにコピーしない", async () => {
       const session = { id: "sess-1" };
       mockAgent.shareSession.mockResolvedValue(session);
-      const mockPS = createMockPlatformServices();
 
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+      const { sendMessage } = setupProvider(mockAgent);
       await sendMessage({ type: "shareSession", sessionId: "sess-1" });
 
-      expect(mockPS.copyToClipboard).not.toHaveBeenCalled();
+      expect(vscode.env.clipboard.writeText).not.toHaveBeenCalled();
     });
   });
 
@@ -1112,9 +1107,8 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("openDiffEditor", () => {
-    it("should delegate to platformServices.openDiffEditor", async () => {
-      const mockPS = createMockPlatformServices();
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+    it("vscode.diff コマンドを実行する", async () => {
+      const { sendMessage } = setupProvider(mockAgent);
 
       await sendMessage({
         type: "openDiffEditor",
@@ -1123,7 +1117,12 @@ describe("ChatViewProvider", () => {
         after: "const a = 2;",
       });
 
-      expect(mockPS.openDiffEditor).toHaveBeenCalledWith("src/index.ts", "const a = 1;", "const a = 2;");
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "vscode.diff",
+        expect.objectContaining({ scheme: "opencode-diff-before" }),
+        expect.objectContaining({ scheme: "opencode-diff-after" }),
+        "index.ts (Changes)",
+      );
     });
   });
 
@@ -1132,29 +1131,41 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("openFile", () => {
-    it("should delegate to platformServices.openFile", async () => {
-      const mockPS = createMockPlatformServices();
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+    it("line 指定時はテキストエディタの選択範囲を更新し中央へリビールする", async () => {
+      const editor = {
+        selection: undefined as unknown,
+        revealRange: vi.fn(),
+      };
+      vi.mocked(vscode.window.showTextDocument).mockResolvedValueOnce(editor as never);
 
+      const { sendMessage } = setupProvider(mockAgent);
       await sendMessage({
         type: "openFile",
         filePath: "/home/user/project/src/main.ts",
         line: 42,
       });
 
-      expect(mockPS.openFile).toHaveBeenCalledWith("/home/user/project/src/main.ts", 42);
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+      expect(vscode.window.showTextDocument).toHaveBeenCalled();
+      expect(editor.selection).toBeInstanceOf(vscode.Selection);
+      expect(editor.revealRange).toHaveBeenCalled();
     });
 
-    it("should delegate to platformServices.openFile without line", async () => {
-      const mockPS = createMockPlatformServices();
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+    it("line 未指定時は選択範囲やリビールを行わない", async () => {
+      const editor = {
+        selection: undefined as unknown,
+        revealRange: vi.fn(),
+      };
+      vi.mocked(vscode.window.showTextDocument).mockResolvedValueOnce(editor as never);
 
+      const { sendMessage } = setupProvider(mockAgent);
       await sendMessage({
         type: "openFile",
         filePath: "/home/user/project/src/main.ts",
       });
 
-      expect(mockPS.openFile).toHaveBeenCalledWith("/home/user/project/src/main.ts", undefined);
+      expect(vscode.window.showTextDocument).toHaveBeenCalled();
+      expect(editor.revealRange).not.toHaveBeenCalled();
     });
   });
 
@@ -1163,13 +1174,12 @@ describe("ChatViewProvider", () => {
   // ============================================================
 
   describe("copyToClipboard", () => {
-    it("should delegate to platformServices.copyToClipboard", async () => {
-      const mockPS = createMockPlatformServices();
-      const { sendMessage } = setupProvider(mockAgent, mockPS);
+    it("クリップボードにテキストを書き込む", async () => {
+      const { sendMessage } = setupProvider(mockAgent);
 
       await sendMessage({ type: "copyToClipboard", text: "Hello World" });
 
-      expect(mockPS.copyToClipboard).toHaveBeenCalledWith("Hello World");
+      expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith("Hello World");
     });
   });
 
@@ -1206,7 +1216,7 @@ describe("ChatViewProvider", () => {
       const diffs = [{ file: "a.ts", before: "old", after: "new", additions: 1, deletions: 1 }];
       mockAgent.getSessionDiff.mockResolvedValue(diffs);
       const drm = createMockDiffReviewManager();
-      const { sendMessage, postMessage } = setupProvider(mockAgent, undefined, drm);
+      const { sendMessage, postMessage } = setupProvider(mockAgent, drm);
 
       // activeSession を設定
       const session = { id: "s1", title: "S1" };
@@ -1226,7 +1236,7 @@ describe("ChatViewProvider", () => {
       const diffs = [{ file: "a.ts", before: "old", after: "new", additions: 1, deletions: 1 }];
       mockAgent.getSessionDiff.mockResolvedValue(diffs);
       const drm = createMockDiffReviewManager();
-      const { sendMessage } = setupProvider(mockAgent, undefined, drm);
+      const { sendMessage } = setupProvider(mockAgent, drm);
 
       const session = { id: "s1", title: "S1" };
       mockAgent.createSession.mockResolvedValue(session);
@@ -1241,7 +1251,7 @@ describe("ChatViewProvider", () => {
     // should not call start when no activeSession
     it("activeSession がない場合は start を呼ばないこと", async () => {
       const drm = createMockDiffReviewManager();
-      const { sendMessage } = setupProvider(mockAgent, undefined, drm);
+      const { sendMessage } = setupProvider(mockAgent, drm);
 
       await sendMessage({ type: "openDiffReview" });
 
@@ -1254,7 +1264,7 @@ describe("ChatViewProvider", () => {
     // should call diffReviewManager.stop
     it("diffReviewManager.stop を呼ぶこと", async () => {
       const drm = createMockDiffReviewManager();
-      const { sendMessage, postMessage } = setupProvider(mockAgent, undefined, drm);
+      const { sendMessage, postMessage } = setupProvider(mockAgent, drm);
 
       await sendMessage({ type: "stopDiffReview" });
 
@@ -1270,7 +1280,7 @@ describe("ChatViewProvider", () => {
   describe("difitAvailable", () => {
     // should send difitAvailable on ready
     it("ready 時に difitAvailable メッセージを送信すること", async () => {
-      const { postMessage, sendMessage } = setupProvider(mockAgent, undefined, undefined, true);
+      const { postMessage, sendMessage } = setupProvider(mockAgent, undefined, true);
 
       await sendMessage({ type: "ready" });
 
@@ -1279,7 +1289,7 @@ describe("ChatViewProvider", () => {
 
     // should send false when difit is not available
     it("difit 未インストール時は available=false を送信すること", async () => {
-      const { postMessage, sendMessage } = setupProvider(mockAgent, undefined, undefined, false);
+      const { postMessage, sendMessage } = setupProvider(mockAgent, undefined, false);
 
       await sendMessage({ type: "ready" });
 
@@ -1299,7 +1309,6 @@ describe("ChatViewProvider", () => {
         extensionUri as never,
         mockAgent as never,
         "/workspace",
-        createMockPlatformServices() as never,
         createMockDiffReviewManager() as never,
         false,
       );

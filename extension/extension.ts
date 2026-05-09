@@ -5,7 +5,6 @@ import { DiffReviewManager } from "./diff-review-manager";
 import { OpenCodeBinaryNotFoundError, OpenCodeError } from "./errors";
 import { t } from "./i18n";
 import { OpenCodeClientHandle } from "./opencode-client-handle";
-import { VscodePlatformServices } from "./vscode-platform-services";
 
 const openCodeClientHandle = new OpenCodeClientHandle();
 
@@ -27,8 +26,6 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  const platformServices = new VscodePlatformServices();
-
   // PATH 上に difit が存在するか確認する。
   // 存在しない場合はレビューボタンを非表示にするだけでエラーは出さない。
   const difitAvailable = await checkDifitAvailable();
@@ -38,7 +35,6 @@ export async function activate(context: vscode.ExtensionContext) {
     context.extensionUri,
     openCodeClientHandle,
     workspaceFolder,
-    platformServices,
     diffReviewManager,
     difitAvailable,
   );
