@@ -26,7 +26,7 @@ vi.mock("@opencode-ai/sdk/v2", () => ({
 }));
 
 import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk/v2";
-import { OpenCodeClientHandle } from "../opencode-client-handle";
+import { OpenCodeClientHandle, OpenCodeClientNotConnectedError } from "../opencode-client-handle";
 
 describe("OpenCodeClientHandle", () => {
   let handle: OpenCodeClientHandle;
@@ -67,7 +67,10 @@ describe("OpenCodeClientHandle", () => {
 
       expect(mockServerClose).toHaveBeenCalled();
       expect(handle.getServerUrl()).toBeUndefined();
-      expect(() => handle.getClient()).toThrow("OpenCode client is not connected. Call connect() first.");
+      expect(() => handle.getClient()).toThrow(OpenCodeClientNotConnectedError);
+      expect(() => handle.getClient()).toThrow(
+        "OpenCode クライアントが接続されていません。先に connect() を呼び出してください。",
+      );
     });
 
     it("is idempotent", () => {
