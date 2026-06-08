@@ -2,6 +2,7 @@ import type { TextPart } from "@opencodegui/core";
 import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/common";
 import { Marked, type Renderer, type Tokens } from "marked";
+import markedKatex from "marked-katex-extension";
 import { createElement, useCallback, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -154,7 +155,11 @@ function linkifyAbsolutePaths(html: string): string {
 }
 
 // marked インスタンス（グローバル状態を汚染しない）
-const markdownParser = new Marked({ breaks: true }, { renderer: { ...codeRenderer, ...linkRenderer } });
+const markdownParser = new Marked(
+  { breaks: true },
+  { renderer: { ...codeRenderer, ...linkRenderer } },
+  markedKatex({ throwOnError: false, nonStandard: true }),
+);
 
 type Props = {
   part: TextPart;
@@ -206,5 +211,5 @@ export function TextPartView({ part }: Props) {
 
   // biome-ignore lint/security/noDangerouslySetInnerHtml: DOMPurify でサニタイズ済みの HTML を描画する
   // biome-ignore lint/a11y/useKeyWithClickEvents: コピーボタンとファイルリンクのイベント委譲
-  return <span className="markdown" onClick={handleClick} dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div className="markdown" onClick={handleClick} dangerouslySetInnerHTML={{ __html: html }} />;
 }

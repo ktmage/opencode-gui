@@ -380,7 +380,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}';" />
+    content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; style-src-attr 'unsafe-inline'; style-src-elem ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}';" />
   <link rel="stylesheet" href="${styleUri}" nonce="${nonce}" />
 </head>
 <body>
