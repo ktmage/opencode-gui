@@ -309,6 +309,10 @@ describe("OpenCodeAgent", () => {
         model: undefined,
         agent: undefined,
       });
+      // Default (no explicit effort) must NOT include a `variant` key
+      // so the opencode server applies its own default behavior.
+      const call = mockClient.session.promptAsync.mock.calls[0][0];
+      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
     });
 
     it("should send message with model via options", async () => {
@@ -323,6 +327,58 @@ describe("OpenCodeAgent", () => {
         model,
         agent: undefined,
       });
+      // Model set without explicit effort must NOT include a `variant` key.
+      const call = mockClient.session.promptAsync.mock.calls[0][0];
+      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
+    });
+
+    it("should forward explicit effort as top-level variant sibling of model", async () => {
+      await agent.connect();
+      const model = { providerID: "openai", modelID: "gpt-5.4" };
+      const effort = { id: "low" };
+
+      await agent.sendMessage("sess-1", "Hello", { model, effort });
+
+      expect(mockClient.session.promptAsync).toHaveBeenCalledWith({
+        sessionID: "sess-1",
+        parts: [{ type: "text", text: "Hello" }],
+        model,
+        agent: undefined,
+        variant: "low",
+      });
+      // variant lives at the top level — never inside model
+      const call = mockClient.session.promptAsync.mock.calls[0][0];
+      expect(call.variant).toBe("low");
+      expect((call.model as { variant?: unknown })?.variant).toBeUndefined();
+    });
+
+    it("should drop variant when effort is null or has empty id", async () => {
+      await agent.connect();
+      const model = { providerID: "openai", modelID: "gpt-5.4" };
+
+      await agent.sendMessage("sess-1", "Hello", { model, effort: { id: "" } });
+
+      const call = mockClient.session.promptAsync.mock.calls[0][0];
+      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
+    });
+
+    it("should keep explicit effort alongside files/agent/skill parts", async () => {
+      await agent.connect();
+      agent.workspaceFolder = "/ws";
+      const model = { providerID: "openai", modelID: "gpt-5.4" };
+      const effort = { id: "high" };
+      const files = [{ filePath: "a.ts", fileName: "a.ts" }];
+
+      await agent.sendMessage("sess-1", "Review", { model, effort, files, agent: "reviewer", skill: "coding-guidelines" });
+
+      const call = mockClient.session.promptAsync.mock.calls[0][0];
+      expect(call.model).toEqual(model);
+      expect(call.variant).toBe("high");
+      expect(call.parts).toHaveLength(4);
+      expect(call.parts[0]).toEqual({ type: "text", text: "/coding-guidelines", synthetic: true });
+      expect(call.parts[1]).toEqual({ type: "text", text: "Review" });
+      expect(call.parts[2].type).toBe("file");
+      expect(call.parts[3]).toEqual({ type: "agent", name: "reviewer" });
     });
 
     it("should convert relative file paths to absolute using workspaceFolder", async () => {
@@ -424,6 +480,9 @@ describe("OpenCodeAgent", () => {
         command: "ls -la",
         model,
       });
+      // SDK 1.2.17 shell body has no `variant` — must stay absent.
+      const call = mockClient.session.shell.mock.calls[0][0];
+      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
     });
 
     it("should pass undefined model when not provided", async () => {
@@ -437,6 +496,9 @@ describe("OpenCodeAgent", () => {
         command: "pwd",
         model: undefined,
       });
+      // Defensive: no variant key on shell request, even when no model is set.
+      const call = mockClient.session.shell.mock.calls[0][0];
+      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
     });
   });
 

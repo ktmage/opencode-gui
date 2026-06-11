@@ -1,17 +1,19 @@
 import type {
   AgentInfo,
+  ModelVariantRef,
   ProviderInfo,
   SkillInfo,
   SoundEventSetting,
   SoundEventType,
   SoundSettings,
 } from "@opencodegui/core";
+import { getModelVariants } from "@opencodegui/core";
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useClickOutside } from "../../../hooks/useClickOutside";
 import { useInputHistory } from "../../../hooks/useInputHistory";
 import type { LocaleSetting } from "../../../locales";
 import { useLocale } from "../../../locales";
-import type { AllProvidersData, FileAttachment } from "../../../vscode-api";
+import type { AllProvidersData, FileAttachment, ModelInfo } from "../../../vscode-api";
 import { postMessage } from "../../../vscode-api";
 import { IconButton } from "../../atoms/IconButton";
 import { ChevronRightIcon, GearIcon, SendIcon, StopIcon, TerminalIcon } from "../../atoms/icons";
@@ -34,6 +36,24 @@ type Props = {
   allProvidersData: AllProvidersData | null;
   selectedModel: { providerID: string; modelID: string } | null;
   onModelSelect: (model: { providerID: string; modelID: string }) => void;
+  /**
+   * Optional explicit model effort/variant for the selected model. When
+   * set, the `ModelSelector` displays the effort label compactly next
+   * to the selected model. When unset, no effort text or separator is
+   * shown — the selector falls back to displaying the model name only.
+   * Display-only at this layer; click/cycle handling lives in the
+   * parent (task 2.3) and protocol forwarding lives in task 3.1+.
+   */
+  selectedModelEffort?: ModelVariantRef;
+  /**
+   * Setter for the explicit model effort/variant. The webview's
+   * `useProviders` hook normalizes the value against the selected
+   * model's metadata before storing, so callers can pass any variant
+   * ref (including `null` / `undefined` to clear). When omitted, the
+   * input falls back to a no-op for cycle actions (effort cycling is
+   * disabled) and the existing text/send behavior is preserved.
+   */
+  onModelEffortSelect?: (effort: ModelVariantRef | null | undefined) => void;
   selectedPrimaryAgent: string | null;
   onPrimaryAgentSelect: (agentName: string) => void;
   openEditors: FileAttachment[];
@@ -61,6 +81,8 @@ export function InputArea({
   allProvidersData,
   selectedModel,
   onModelSelect,
+  selectedModelEffort,
+  onModelEffortSelect,
   selectedPrimaryAgent,
   onPrimaryAgentSelect,
   openEditors,
@@ -342,8 +364,55 @@ export function InputArea({
     ? skills.filter((skill) => skill.name.toLowerCase().includes(slashQuery.toLowerCase())).slice(0, 10)
     : skills.slice(0, 10);
 
+  // Ctrl+T: cycle model effort for the selected model.
+  //
+  // Resolves the selected model's `ModelInfo` from the most
+  // authoritative available source (allProvidersData.all first,
+  // then providers) and derives valid effort choices via
+  // `getModelVariants`, which already filters `disabled: true` and
+  // normalizes labels. Returns true when a cycle action was
+  // performed, so the keydown handler can call `preventDefault`
+  // only in that case. For unsupported / no-variants models the
+  // callback returns false and the event falls through to the
+  // existing textarea behavior — `executeShell` and the default
+  // key handling are not affected.
+  const handleCycleModelEffort = useCallback((): boolean => {
+    if (!onModelEffortSelect) return false;
+    const info = findSelectedModelInfo(selectedModel, allProvidersData, providers);
+    const validVariants = getModelVariants(info);
+    if (validVariants.length === 0) return false;
+
+    const currentIndex = selectedModelEffort
+      ? validVariants.findIndex((v) => v.id === selectedModelEffort.id)
+      : -1;
+
+    const nextVariant: ModelVariantRef =
+      currentIndex < 0
+        ? // Unset or stale (not in current valid set) → start from the first.
+          validVariants[0]
+        : // Otherwise cycle to the next, wrapping to the first at the end.
+          validVariants[(currentIndex + 1) % validVariants.length];
+
+    onModelEffortSelect(nextVariant);
+    return true;
+  }, [onModelEffortSelect, selectedModel, allProvidersData, providers, selectedModelEffort]);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Ctrl+T: cycle valid effort choices for the selected model.
+      // - `e.metaKey` excluded so we don't shadow Cmd+T (open new tab).
+      // - `e.altKey` excluded so we don't shadow VS Code / IME bindings.
+      // - When no cycle action is available (unsupported model, no
+      //   setter, or empty variants) we deliberately do NOT call
+      //   `preventDefault` so the event continues to behave like a
+      //   normal textarea keypress.
+      if (e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "t") {
+        if (handleCycleModelEffort()) {
+          e.preventDefault();
+          return;
+        }
+      }
+
       // Escape で # ポップアップを閉じる
       if (e.key === "Escape" && hashTrigger.active) {
         setHashTrigger({ active: false, startIndex: -1 });
@@ -523,6 +592,7 @@ export function InputArea({
       selectSkill,
       text,
       inputHistory,
+      handleCycleModelEffort,
     ],
   );
 
@@ -726,6 +796,7 @@ export function InputArea({
               allProvidersData={allProvidersData}
               selectedModel={selectedModel}
               onSelect={onModelSelect}
+              selectedModelEffort={selectedModelEffort}
             />
             <AgentSelector agents={agents} selectedAgent={selectedPrimaryAgent} onSelect={onPrimaryAgentSelect} />
             <Popover
@@ -771,4 +842,42 @@ export function InputArea({
       </div>
     </div>
   );
+}
+
+// ============================================================
+// Internal helpers
+// ============================================================
+
+/**
+ * Resolve the full `ModelInfo` for a `{ providerID, modelID }` pair
+ * from the most authoritative available source.
+ *
+ * - Prefers `allProvidersData.all` (which carries the `variants` map
+ *   and is the source of truth for effort choices).
+ * - Falls back to `providers` (the connected-only list) when the
+ *   all-providers payload is missing or doesn't contain the target.
+ *
+ * Returns `null` when the model cannot be resolved from either
+ * source. Callers must treat that as "no metadata available" and
+ * leave effort cycling disabled for that model.
+ *
+ * Mirrors the resolver used by `useProviders` so the cycle logic
+ * here sees the same metadata view as the invalidation effect.
+ */
+function findSelectedModelInfo(
+  target: { providerID: string; modelID: string } | null,
+  allProvidersData: AllProvidersData | null,
+  providers: ProviderInfo[],
+): ModelInfo | null {
+  if (!target) return null;
+  const lookup = (list: ProviderInfo[] | null | undefined): ModelInfo | null => {
+    if (!list) return null;
+    for (const provider of list) {
+      if (provider.id !== target.providerID) continue;
+      const model = provider.models?.[target.modelID];
+      if (model) return model;
+    }
+    return null;
+  };
+  return lookup(allProvidersData?.all) ?? lookup(providers);
 }

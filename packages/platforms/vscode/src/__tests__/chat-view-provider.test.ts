@@ -510,6 +510,61 @@ describe("ChatViewProvider", () => {
         skill: "coding-guidelines",
       });
     });
+
+    it("should NOT include an effort property when message.effort is absent", async () => {
+      const { sendMessage } = setupProvider(mockAgent);
+
+      await sendMessage({
+        type: "sendMessage",
+        sessionId: "sess-1",
+        text: "Hello",
+        model: { providerID: "anthropic", modelID: "claude-4" },
+        files: [],
+      });
+
+      // The third argument to sendMessage is the options object; effort must be absent (not undefined-keyed).
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
+        string,
+        unknown
+      >;
+      expect(Object.prototype.hasOwnProperty.call(options, "effort")).toBe(false);
+    });
+
+    it("should forward explicit effort to agent.sendMessage options when present", async () => {
+      const { sendMessage } = setupProvider(mockAgent);
+      const effort = { id: "low", label: "Low" };
+
+      await sendMessage({
+        type: "sendMessage",
+        sessionId: "sess-1",
+        text: "Hello",
+        model: { providerID: "anthropic", modelID: "claude-4" },
+        files: [{ filePath: "a.ts", fileName: "a.ts" }],
+        agent: "reviewer",
+        primaryAgent: "build",
+        skill: "coding-guidelines",
+        effort,
+      });
+
+      expect(mockAgent.sendMessage).toHaveBeenCalledWith(
+        "sess-1",
+        "Hello",
+        expect.objectContaining({
+          model: { providerID: "anthropic", modelID: "claude-4" },
+          files: [{ filePath: "a.ts", fileName: "a.ts" }],
+          agent: "reviewer",
+          primaryAgent: "build",
+          skill: "coding-guidelines",
+          effort,
+        }),
+      );
+      // Sanity: the effort object passed in is the exact same one forwarded.
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
+        string,
+        unknown
+      >;
+      expect(options.effort).toEqual(effort);
+    });
   });
 
   // ============================================================
@@ -730,6 +785,65 @@ describe("ChatViewProvider", () => {
         files: [{ filePath: "a.ts", fileName: "a.ts" }],
       });
     });
+
+    it("should NOT include an effort property in sendMessage options when message.effort is absent", async () => {
+      const session = { id: "sess-1" };
+      mockAgent.revertSession.mockResolvedValue(session);
+      mockAgent.getMessages.mockResolvedValue([]);
+
+      const { sendMessage } = setupProvider(mockAgent);
+      await sendMessage({
+        type: "editAndResend",
+        sessionId: "sess-1",
+        messageId: "msg-3",
+        text: "Updated text",
+        model: { providerID: "openai", modelID: "gpt-4" },
+        files: [{ filePath: "a.ts", fileName: "a.ts" }],
+      });
+
+      // The third argument to sendMessage is the options object; effort must be absent (not undefined-keyed).
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
+        string,
+        unknown
+      >;
+      expect(Object.prototype.hasOwnProperty.call(options, "effort")).toBe(false);
+    });
+
+    it("should forward explicit effort to agent.sendMessage options when present", async () => {
+      const session = { id: "sess-1" };
+      mockAgent.revertSession.mockResolvedValue(session);
+      mockAgent.getMessages.mockResolvedValue([]);
+      const effort = { id: "high", label: "High" };
+
+      const { sendMessage } = setupProvider(mockAgent);
+      await sendMessage({
+        type: "editAndResend",
+        sessionId: "sess-1",
+        messageId: "msg-3",
+        text: "Updated text",
+        model: { providerID: "openai", modelID: "gpt-4" },
+        files: [{ filePath: "a.ts", fileName: "a.ts" }],
+        effort,
+      });
+
+      // 1. revert still happens
+      expect(mockAgent.revertSession).toHaveBeenCalledWith("sess-1", "msg-3");
+      // 2. sendMessage is called with effort forwarded in options
+      expect(mockAgent.sendMessage).toHaveBeenCalledWith(
+        "sess-1",
+        "Updated text",
+        expect.objectContaining({
+          model: { providerID: "openai", modelID: "gpt-4" },
+          files: [{ filePath: "a.ts", fileName: "a.ts" }],
+          effort,
+        }),
+      );
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
+        string,
+        unknown
+      >;
+      expect(options.effort).toEqual(effort);
+    });
   });
 
   // ============================================================
@@ -744,6 +858,19 @@ describe("ChatViewProvider", () => {
       await sendMessage({ type: "executeShell", sessionId: "sess-1", command: "ls", model });
 
       expect(mockAgent.executeShell).toHaveBeenCalledWith("sess-1", "ls", model);
+    });
+
+    it("should NOT forward effort or trigger the sendMessage path for executeShell", async () => {
+      const { sendMessage } = setupProvider(mockAgent);
+      const model = { providerID: "openai", modelID: "gpt-4" };
+
+      // Protocol does not carry effort for executeShell; the extension host must
+      // continue to use only (sessionId, command, model).
+      await sendMessage({ type: "executeShell", sessionId: "sess-1", command: "ls", model });
+
+      expect(mockAgent.executeShell).toHaveBeenCalledWith("sess-1", "ls", model);
+      // No third-arg options object should ever be created for executeShell.
+      expect(mockAgent.sendMessage).not.toHaveBeenCalled();
     });
   });
 

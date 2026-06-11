@@ -307,6 +307,23 @@ export type ModelRef = {
   modelID: string;
 };
 
+/**
+ * Optional explicit model effort/variant selection.
+ *
+ * The id is provider-specific (e.g., "low", "medium", "high", "max",
+ * "minimal", "xhigh", "none") and is not a fixed union; it is read from
+ * server-provided model metadata (`ModelInfo.variants`).
+ *
+ * An unset (omitted) value means "use opencode default behavior" — payload
+ * producers must omit `variant` from the wire request in that case so the
+ * server applies its own default rather than the GUI's.
+ */
+export type ModelVariantRef = {
+  id: string;
+  label?: string;
+  disabled?: boolean;
+};
+
 // ============================================================
 // Permissions
 // ============================================================
@@ -418,6 +435,12 @@ export type ModelInfo = {
   status?: string;
   experimental?: boolean;
   options?: Record<string, unknown>;
+  /**
+   * Opaque server-provided map of model variant ids to their config bag.
+   * The GUI treats values as opaque — it only needs the keys (variant ids)
+   * to populate effort choices and the disabled flag for filtering.
+   */
+  variants?: Record<string, Record<string, unknown>>;
 };
 
 export type AllProvidersData = {
@@ -463,6 +486,12 @@ export type AppPaths = {
 
 export type SendMessageOptions = {
   model?: ModelRef;
+  /**
+   * Optional explicit effort/variant override. When omitted, payload
+   * producers must NOT include a `variant` field on the wire request so
+   * the opencode server applies its own default behavior.
+   */
+  effort?: ModelVariantRef;
   files?: FileAttachment[];
   agent?: string;
   primaryAgent?: string;

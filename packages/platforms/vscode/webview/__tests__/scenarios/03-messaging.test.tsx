@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { postMessage } from "../../vscode-api";
@@ -315,6 +315,151 @@ describe("メッセージング", () => {
         sessionId: "s1",
         text: "Hello",
         model: { providerID: "anthropic", modelID: "claude-4-opus" },
+      }),
+    );
+  });
+
+  // task 3.1: default sendMessage payload must NOT include `effort`
+  // when the user has not selected an explicit effort, even when the
+  // selected model advertises variants. Preserves the "default effort
+  // until explicitly selected" requirement.
+  it("effort 未選択時の sendMessage には effort プロパティが含まれないこと", async () => {
+    renderApp();
+
+    // モデルに variants を持たせる（effort サイクル対応モデル）。
+    const { createAllProvidersData, createProvider } = await import("../factories");
+    const provider = createProvider("openai", {
+      "gpt-5.4": {
+        id: "gpt-5.4",
+        name: "GPT-5.4",
+        limit: { context: 128000, output: 4096 },
+        variants: {
+          low: { label: "Low" },
+          medium: { label: "Medium" },
+          high: { label: "High" },
+        },
+      },
+    });
+    await sendExtMessage({
+      type: "providers",
+      providers: [provider],
+      allProviders: createAllProvidersData(
+        ["openai"],
+        [
+          {
+            id: "openai",
+            name: "OpenAI",
+            models: {
+              "gpt-5.4": {
+                id: "gpt-5.4",
+                name: "GPT-5.4",
+                limit: { context: 128000, output: 4096 },
+                variants: {
+                  low: { label: "Low" },
+                  medium: { label: "Medium" },
+                  high: { label: "High" },
+                },
+              },
+            },
+          },
+        ],
+      ),
+      default: { general: "openai/gpt-5.4" },
+      configModel: "openai/gpt-5.4",
+    });
+
+    const session = createSession({ id: "s1" });
+    await sendExtMessage({ type: "activeSession", session });
+    vi.mocked(postMessage).mockClear();
+
+    const user = userEvent.setup();
+    const textarea = screen.getByPlaceholderText("Ask OpenCode... (type # to attach files)");
+    await user.type(textarea, "Hello{Enter}");
+
+    const calls = vi.mocked(postMessage).mock.calls;
+    const sendCall = calls.find((c) => (c[0] as { type?: string })?.type === "sendMessage");
+    expect(sendCall, "sendMessage must have been called").toBeDefined();
+    // effort プロパティは payload 自体に存在しない（undefined でもない）。
+    expect("effort" in (sendCall![0] as object)).toBe(false);
+    // model は通常通り含まれる。
+    expect(sendCall![0]).toEqual(
+      expect.objectContaining({
+        type: "sendMessage",
+        sessionId: "s1",
+        text: "Hello",
+        model: { providerID: "openai", modelID: "gpt-5.4" },
+      }),
+    );
+  });
+
+  // task 3.1: when an explicit effort is selected, sendMessage payload
+  // must include a normalized `effort: ModelVariantRef` entry derived
+  // from the model metadata. Use Ctrl+T to make a real selection
+  // through the existing cycle handler so we exercise the production
+  // path (no direct state poking).
+  it("effort 選択後の sendMessage には正規化された effort が含まれること", async () => {
+    renderApp();
+
+    const { createAllProvidersData, createProvider } = await import("../factories");
+    const provider = createProvider("openai", {
+      "gpt-5.4": {
+        id: "gpt-5.4",
+        name: "GPT-5.4",
+        limit: { context: 128000, output: 4096 },
+        variants: {
+          low: { label: "Low" },
+          medium: { label: "Medium" },
+          high: { label: "High" },
+        },
+      },
+    });
+    await sendExtMessage({
+      type: "providers",
+      providers: [provider],
+      allProviders: createAllProvidersData(
+        ["openai"],
+        [
+          {
+            id: "openai",
+            name: "OpenAI",
+            models: {
+              "gpt-5.4": {
+                id: "gpt-5.4",
+                name: "GPT-5.4",
+                limit: { context: 128000, output: 4096 },
+                variants: {
+                  low: { label: "Low" },
+                  medium: { label: "Medium" },
+                  high: { label: "High" },
+                },
+              },
+            },
+          },
+        ],
+      ),
+      default: { general: "openai/gpt-5.4" },
+      configModel: "openai/gpt-5.4",
+    });
+
+    const session = createSession({ id: "s1" });
+    await sendExtMessage({ type: "activeSession", session });
+    vi.mocked(postMessage).mockClear();
+
+    // Ctrl+T で最初の variant ("low") を選択する
+    const textarea = screen.getByPlaceholderText("Ask OpenCode... (type # to attach files)");
+    fireEvent.keyDown(textarea, { key: "t", ctrlKey: true });
+
+    // 選択後に送信
+    const user = userEvent.setup();
+    await user.type(textarea, "Hello{Enter}");
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "sendMessage",
+        sessionId: "s1",
+        text: "Hello",
+        model: { providerID: "openai", modelID: "gpt-5.4" },
+        effort: { id: "low", label: "Low" },
       }),
     );
   });

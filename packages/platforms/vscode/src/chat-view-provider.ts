@@ -104,6 +104,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           agent: message.agent,
           primaryAgent: message.primaryAgent,
           skill: message.skill,
+          ...(message.effort !== undefined && { effort: message.effort }),
         });
         break;
       }
@@ -215,6 +216,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         await this.agent.sendMessage(message.sessionId, message.text, {
           model: message.model,
           files: message.files,
+          ...(message.effort !== undefined && { effort: message.effort }),
         });
         break;
       }

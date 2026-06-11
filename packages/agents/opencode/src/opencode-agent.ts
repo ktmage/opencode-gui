@@ -272,11 +272,17 @@ export class OpenCodeAgent implements IAgent {
       parts.push({ type: "agent", name: options.agent });
     }
 
+    // SDK 1.2.17 `client.session.promptAsync` exposes `variant?: string` as a
+    // top-level sibling of `model` (verified in design.md Discovery Findings §1).
+    // Omit the key entirely when no explicit effort is selected so the opencode
+    // server applies its own default rather than a GUI-injected override.
+    const effortId = options?.effort?.id;
     await client.session.promptAsync({
       sessionID: sessionId,
       parts,
       model: options?.model,
       agent: options?.primaryAgent,
+      ...(effortId ? { variant: effortId } : {}),
     });
   }
 
