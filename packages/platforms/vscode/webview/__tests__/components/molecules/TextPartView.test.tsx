@@ -12,7 +12,7 @@ describe("TextPartView", () => {
     it("HTML コンテンツをレンダリングすること", () => {
       const part = createTextPart("Hello world");
       const { container } = render(<TextPartView part={part} />);
-      expect(container.querySelector("span")).toBeInTheDocument();
+      expect(container.querySelector(".markdown")).toBeInTheDocument();
     });
 
     // renders the text
@@ -147,6 +147,23 @@ describe("TextPartView", () => {
       expect(call?.text).not.toContain("```");
       expect(call?.text).not.toContain("Here is code");
       expect(call?.text).not.toContain("Done.");
+      spy.mockRestore();
+    });
+  });
+
+  // KaTeX display math with \tag{} renders a .tag element inside .katex-html
+  context("\\tag{} 付きディスプレイ数式の場合", () => {
+    it("\\tag{} 要素がレンダリングされること", () => {
+      const spy = vi
+        .spyOn(Marked.prototype, "parse")
+        .mockReturnValueOnce(
+          '<span class="katex-display"><span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6667em;vertical-align:-0.0833em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">2</span><span class="mord mathnormal mtight">x</span></span></span></span></span></span></span></span></span></span><span class="tag"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mord text"><span class="mord">(</span><span class="mord"><span class="mord">1</span></span><span class="mord">)</span></span></span></span></span></span>',
+        );
+      const part = createTextPart("$$\\tag{1} x+y^{2x}$$");
+      const { container } = render(<TextPartView part={part} />);
+      expect(container.querySelector(".katex-display")).toBeInTheDocument();
+      expect(container.querySelector(".katex-display .katex .katex-html .tag")).toBeInTheDocument();
+      expect(container.querySelector(".tag")!.textContent).toBe("(1)");
       spy.mockRestore();
     });
   });

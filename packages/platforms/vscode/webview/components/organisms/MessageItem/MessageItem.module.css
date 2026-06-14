@@ -223,6 +223,41 @@
   margin-top: 0;
 }
 
+/* --- KaTeX (math) --- */
+
+.content :global(.markdown .katex) {
+  font-size: 1.05em;
+  line-height: 1.25;
+  text-rendering: auto;
+}
+
+.content :global(.markdown .katex-display) {
+  display: block;
+  margin: 10px 0;
+  padding: 4px 0 10px;
+  overflow-x: auto;
+  overflow-y: visible;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.content :global(.markdown .katex-display > .katex) {
+  display: block;
+  max-width: none;
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: baseline;
+}
+
+.content :global(.markdown .katex-display > .katex > .katex-html) {
+  width: max-content;
+  min-width: 100%;
+}
+
+.content :global(.markdown p > .katex) {
+  vertical-align: -0.08em;
+}
+
 /* --- Code block wrapper with header & copy button --- */
 
 .content :global(.code-block-wrapper) {
