@@ -1,4 +1,4 @@
-import type { ProviderInfo as CoreProviderInfo } from "@opencodegui/core";
+import type { ProviderInfo as CoreProviderInfo, ModelVariantRef } from "@opencodegui/core";
 import { useMemo, useState } from "react";
 import { useLocale } from "../../../locales";
 import type { AllProvidersData, ModelInfo, ProviderInfo } from "../../../vscode-api";
@@ -12,6 +12,14 @@ type Props = {
   allProvidersData: AllProvidersData | null;
   selectedModel: { providerID: string; modelID: string } | null;
   onSelect: (model: { providerID: string; modelID: string }) => void;
+  /**
+   * Optional explicit model effort/variant for the selected model.
+   * When unset, the selector shows only the model name (no separator
+   * or placeholder like "default"). When set, the effort label (or
+   * id fallback) is rendered compactly next to the model name with a
+   * middle-dot separator. Display-only; click handling lives elsewhere.
+   */
+  selectedModelEffort?: ModelVariantRef;
 };
 
 function formatContextK(context: number): string {
@@ -30,7 +38,7 @@ const badgeClass: Record<string, string> = {
   deprecated: styles.deprecated,
 };
 
-export function ModelSelector({ providers, allProvidersData, selectedModel, onSelect }: Props) {
+export function ModelSelector({ providers, allProvidersData, selectedModel, onSelect, selectedModelEffort }: Props) {
   const t = useLocale();
   const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
@@ -84,6 +92,17 @@ export function ModelSelector({ providers, allProvidersData, selectedModel, onSe
     return selectedModel.modelID;
   }, [selectedModel, allDisplayProviders, t["model.selectModel"]]);
 
+  // Effort display text. Prefer the normalized `label`; fall back to `id`.
+  // Only render when both a model is selected and an explicit effort is set.
+  // The label is intentionally compact (e.g. "Low" / "Medium" / "High") and
+  // uses a middle-dot separator so the rendered text reads as
+  // "GPT-5.4 · Low" without dominating the model name.
+  const selectedModelEffortText = useMemo(() => {
+    if (!selectedModel) return null;
+    if (!selectedModelEffort) return null;
+    return selectedModelEffort.label || selectedModelEffort.id;
+  }, [selectedModel, selectedModelEffort]);
+
   const toggleProvider = (id: string) => {
     setCollapsedProviders((prev) => {
       const next = new Set(prev);
@@ -98,7 +117,19 @@ export function ModelSelector({ providers, allProvidersData, selectedModel, onSe
       className={styles.root}
       trigger={({ open, toggle }) => (
         <button type="button" className={styles.button} onClick={toggle} title={t["model.selectModel"]}>
-          <span className={styles.label}>{selectedModelName}</span>
+          <span className={styles.label}>
+            <span className={styles.modelName}>{selectedModelName}</span>
+            {selectedModelEffortText && (
+              <>
+                <span className={styles.separator} aria-hidden="true">
+                  ·
+                </span>
+                <span className={styles.effort} title={`effort: ${selectedModelEffortText}`}>
+                  {selectedModelEffortText}
+                </span>
+              </>
+            )}
+          </span>
           <span className={`${styles.chevron} ${open ? styles.expanded : ""}`}>
             <ChevronRightIcon />
           </span>

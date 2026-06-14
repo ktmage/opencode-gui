@@ -1,8 +1,8 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { postMessage } from "../../vscode-api";
-import { createMessage, createSession, createTextPart } from "../factories";
+import { createAllProvidersData, createMessage, createProvider, createSession, createTextPart } from "../factories";
 import { renderApp, sendExtMessage } from "../helpers";
 
 /** ユーザー→アシスタント→ユーザーの3メッセージ構成をセットアップする */
@@ -194,5 +194,178 @@ describe("メッセージ編集とチェックポイント", () => {
 
     // ファイル名がチップとして表示される
     expect(screen.getByText("main.ts")).toBeInTheDocument();
+  });
+
+  // task 3.1: editAndResend payload must NOT include `effort` when
+  // the user has not selected an explicit effort, mirroring the
+  // default sendMessage behavior. Preserves the "preserve default
+  // effort until explicitly selected" requirement on the edit path.
+  it("effort 未選択時の editAndResend には effort プロパティが含まれないこと", async () => {
+    // variants を持つモデル + アクティブセッションを構築する。
+    // useProviders はプロバイダーメタデータから effort 選択肢を
+    // 解決するが、未選択状態では payload に effort は載らない。
+    renderApp();
+    const provider = createProvider("openai", {
+      "gpt-5.4": {
+        id: "gpt-5.4",
+        name: "GPT-5.4",
+        limit: { context: 128000, output: 4096 },
+        variants: {
+          low: { label: "Low" },
+          medium: { label: "Medium" },
+          high: { label: "High" },
+        },
+      },
+    });
+    await sendExtMessage({
+      type: "providers",
+      providers: [provider],
+      allProviders: createAllProvidersData(
+        ["openai"],
+        [
+          {
+            id: "openai",
+            name: "OpenAI",
+            models: {
+              "gpt-5.4": {
+                id: "gpt-5.4",
+                name: "GPT-5.4",
+                limit: { context: 128000, output: 4096 },
+                variants: {
+                  low: { label: "Low" },
+                  medium: { label: "Medium" },
+                  high: { label: "High" },
+                },
+              },
+            },
+          },
+        ],
+      ),
+      default: { general: "openai/gpt-5.4" },
+      configModel: "openai/gpt-5.4",
+    });
+
+    const session = createSession({ id: "s1", title: "Chat" });
+    await sendExtMessage({ type: "activeSession", session });
+
+    const userMsg1 = createMessage({ id: "m1", sessionID: "s1", role: "user" });
+    const userPart1 = createTextPart("First question", { messageID: "m1" });
+    const assistantMsg = createMessage({ id: "m2", sessionID: "s1", role: "assistant" });
+    const assistantPart = createTextPart("First answer", { messageID: "m2" });
+    const userMsg2 = createMessage({ id: "m3", sessionID: "s1", role: "user" });
+    const userPart2 = createTextPart("Second question", { messageID: "m3" });
+
+    await sendExtMessage({
+      type: "messages",
+      sessionId: "s1",
+      messages: [
+        { info: userMsg1, parts: [userPart1] },
+        { info: assistantMsg, parts: [assistantPart] },
+        { info: userMsg2, parts: [userPart2] },
+      ],
+    });
+    vi.mocked(postMessage).mockClear();
+
+    // 編集送信（effort 未選択）
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Second question"));
+    const editTextarea = screen.getByDisplayValue("Second question");
+    await user.clear(editTextarea);
+    await user.type(editTextarea, "Revised{Enter}");
+
+    const calls = vi.mocked(postMessage).mock.calls;
+    const editCall = calls.find((c) => (c[0] as { type?: string })?.type === "editAndResend");
+    expect(editCall, "editAndResend must have been called").toBeDefined();
+    // effort プロパティは payload 自体に存在しない。
+    expect("effort" in (editCall![0] as object)).toBe(false);
+  });
+
+  // task 3.1: when an explicit effort is selected, editAndResend
+  // payload must include the same normalized `effort` entry that
+  // sendMessage would carry. Confirms the edit-and-resend path
+  // preserves the explicit effort behavior required by the spec.
+  it("effort 選択後の editAndResend には正規化された effort が含まれること", async () => {
+    renderApp();
+    const provider = createProvider("openai", {
+      "gpt-5.4": {
+        id: "gpt-5.4",
+        name: "GPT-5.4",
+        limit: { context: 128000, output: 4096 },
+        variants: {
+          low: { label: "Low" },
+          medium: { label: "Medium" },
+          high: { label: "High" },
+        },
+      },
+    });
+    await sendExtMessage({
+      type: "providers",
+      providers: [provider],
+      allProviders: createAllProvidersData(
+        ["openai"],
+        [
+          {
+            id: "openai",
+            name: "OpenAI",
+            models: {
+              "gpt-5.4": {
+                id: "gpt-5.4",
+                name: "GPT-5.4",
+                limit: { context: 128000, output: 4096 },
+                variants: {
+                  low: { label: "Low" },
+                  medium: { label: "Medium" },
+                  high: { label: "High" },
+                },
+              },
+            },
+          },
+        ],
+      ),
+      default: { general: "openai/gpt-5.4" },
+      configModel: "openai/gpt-5.4",
+    });
+
+    const session = createSession({ id: "s1", title: "Chat" });
+    await sendExtMessage({ type: "activeSession", session });
+
+    const userMsg1 = createMessage({ id: "m1", sessionID: "s1", role: "user" });
+    const userPart1 = createTextPart("First question", { messageID: "m1" });
+    const assistantMsg = createMessage({ id: "m2", sessionID: "s1", role: "assistant" });
+    const assistantPart = createTextPart("First answer", { messageID: "m2" });
+    const userMsg2 = createMessage({ id: "m3", sessionID: "s1", role: "user" });
+    const userPart2 = createTextPart("Second question", { messageID: "m3" });
+
+    await sendExtMessage({
+      type: "messages",
+      sessionId: "s1",
+      messages: [
+        { info: userMsg1, parts: [userPart1] },
+        { info: assistantMsg, parts: [assistantPart] },
+        { info: userMsg2, parts: [userPart2] },
+      ],
+    });
+    vi.mocked(postMessage).mockClear();
+
+    // Ctrl+T で effort "low" を選択
+    const textarea = screen.getByPlaceholderText("Ask OpenCode... (type # to attach files)");
+    fireEvent.keyDown(textarea, { key: "t", ctrlKey: true });
+
+    // 編集送信（effort 選択済み）
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Second question"));
+    const editTextarea = screen.getByDisplayValue("Second question");
+    await user.clear(editTextarea);
+    await user.type(editTextarea, "Revised{Enter}");
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "editAndResend",
+        sessionId: "s1",
+        messageId: "m2",
+        text: "Revised",
+        effort: { id: "low", label: "Low" },
+      }),
+    );
   });
 });

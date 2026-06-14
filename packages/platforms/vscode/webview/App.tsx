@@ -18,7 +18,7 @@ import { useQuestions } from "./hooks/useQuestions";
 import { useSession } from "./hooks/useSession";
 import { useSoundNotification } from "./hooks/useSoundNotification";
 import { LocaleProvider } from "./locales";
-import type { FileAttachment, HostToUIMessage } from "./vscode-api";
+import type { FileAttachment, HostToUIMessage, UIToHostMessage } from "./vscode-api";
 import { postMessage } from "./vscode-api";
 
 // re-export for consumers that import from App.tsx
@@ -244,7 +244,15 @@ export function App() {
   const handleSend = useCallback(
     (text: string, files: FileAttachment[], agent?: string, primaryAgent?: string, skill?: string) => {
       if (!session.activeSession) return;
-      postMessage({
+      // Build the explicit effort entry only when an effort has been
+      // selected by the user. Omitting the property entirely (rather
+      // than `effort: undefined`) preserves the default payload
+      // semantics: the extension host forwards no `variant` and the
+      // opencode server applies its own default behavior. The hook
+      // already normalizes `selectedModelEffort` from the model
+      // metadata, so we can pass it through directly.
+      type SendMessagePayload = Extract<UIToHostMessage, { type: "sendMessage" }>;
+      const payload: SendMessagePayload = {
         type: "sendMessage",
         sessionId: session.activeSession.id,
         text,
@@ -253,9 +261,13 @@ export function App() {
         agent,
         primaryAgent,
         skill,
-      });
+      };
+      if (prov.selectedModelEffort) {
+        payload.effort = prov.selectedModelEffort;
+      }
+      postMessage(payload);
     },
-    [session.activeSession, prov.selectedModel],
+    [session.activeSession, prov.selectedModel, prov.selectedModelEffort],
   );
 
   // ! プレフィクスで入力されたシェルコマンドを session.shell API 経由で実行する
@@ -285,31 +297,38 @@ export function App() {
       if (!session.activeSession) return;
       // messageId は編集対象のユーザーメッセージ。
       // その直前のメッセージまで巻き戻し、編集後のテキストを送信する。
+      // Explicit effort travels the same way as a normal send so the
+      // edit-and-resend path preserves the same explicit effort
+      // behavior. When effort is unset, the property is omitted so
+      // the host forwards no `variant` on the wire. The hook already
+      // normalizes `selectedModelEffort`, so we can pass it through.
+      type EditAndResendPayload = Extract<UIToHostMessage, { type: "editAndResend" }>;
+      const buildPayload = (targetMessageId: string): EditAndResendPayload => {
+        const payload: EditAndResendPayload = {
+          type: "editAndResend",
+          sessionId: session.activeSession!.id,
+          messageId: targetMessageId,
+          text,
+          model: prov.selectedModel ?? undefined,
+        };
+        if (prov.selectedModelEffort) {
+          payload.effort = prov.selectedModelEffort;
+        }
+        return payload;
+      };
       const msgIndex = msg.messages.findIndex((m) => m.info.id === messageId);
       if (msgIndex < 0) return;
       if (msgIndex === 0) {
         // 最初のメッセージの場合: 新規セッションを作成して送信する方がクリーン
         // ただし revert API のフォールバックとして、messageId 自体で revert
-        postMessage({
-          type: "editAndResend",
-          sessionId: session.activeSession.id,
-          messageId,
-          text,
-          model: prov.selectedModel ?? undefined,
-        });
+        postMessage(buildPayload(messageId));
       } else {
         // 直前のメッセージまで巻き戻して再送信
         const prevMessageId = msg.messages[msgIndex - 1].info.id;
-        postMessage({
-          type: "editAndResend",
-          sessionId: session.activeSession.id,
-          messageId: prevMessageId,
-          text,
-          model: prov.selectedModel ?? undefined,
-        });
+        postMessage(buildPayload(prevMessageId));
       }
     },
-    [session.activeSession, msg.messages, prov.selectedModel],
+    [session.activeSession, msg.messages, prov.selectedModel, prov.selectedModelEffort],
   );
 
   // チェックポイントまで巻き戻す + ユーザーメッセージのテキストを入力欄に復元
@@ -530,6 +549,8 @@ export function App() {
                   allProvidersData={prov.allProvidersData}
                   selectedModel={prov.selectedModel}
                   onModelSelect={prov.handleModelSelect}
+                  selectedModelEffort={prov.selectedModelEffort}
+                  onModelEffortSelect={prov.setSelectedModelEffort}
                   selectedPrimaryAgent={selectedPrimaryAgent}
                   onPrimaryAgentSelect={setSelectedPrimaryAgent}
                   openEditors={openEditors}

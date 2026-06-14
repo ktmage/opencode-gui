@@ -17,6 +17,7 @@ import type {
   FileAttachment,
   FileDiff,
   ModelRef,
+  ModelVariantRef,
   PermissionResponse,
   ProviderInfo,
   QuestionAnswer,
@@ -57,6 +58,12 @@ export type UIToHostMessage =
       sessionId: string;
       text: string;
       model?: ModelRef;
+      /**
+       * Optional explicit effort/variant override. When omitted, the
+       * extension host MUST NOT include a `variant` key on the wire
+       * request so the opencode server applies its own default.
+       */
+      effort?: ModelVariantRef;
       files?: FileAttachment[];
       agent?: string;
       primaryAgent?: string;
@@ -68,6 +75,12 @@ export type UIToHostMessage =
       messageId: string;
       text: string;
       model?: ModelRef;
+      /**
+       * Optional explicit effort/variant override, mirrored from
+       * `sendMessage` so the edit-and-resend path preserves the same
+       * explicit effort behavior as a normal send.
+       */
+      effort?: ModelVariantRef;
       files?: FileAttachment[];
     }
   | { type: "abort"; sessionId: string }
@@ -78,6 +91,10 @@ export type UIToHostMessage =
       sessionId: string;
       command: string;
       model?: ModelRef;
+      // NOTE: effort is intentionally NOT carried on executeShell in
+      // this change. The opencode SDK 1.2.17 `client.session.shell(...)`
+      // body has no `variant` field, so shell sends continue to use
+      // { providerID, modelID } only.
     }
 
   // --- Permissions (via agent) ---

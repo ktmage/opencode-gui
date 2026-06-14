@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { postMessage } from "../../vscode-api";
@@ -336,5 +336,82 @@ describe("シェルコマンド実行", () => {
       const spinner = document.querySelector("[class*='spinner']");
       expect(spinner).toBeInTheDocument();
     });
+  });
+
+  // task 3.1: executeShell is intentionally NOT extended with
+  // `effort` in this change. The opencode SDK 1.2.17
+  // `client.session.shell(...)` body has no `variant` field, so the
+  // shell payload must remain `{ sessionId, command, model }` only,
+  // even when an explicit effort is selected in the GUI. This guards
+  // both the default (no effort) and explicit-effort code paths.
+  it("effort 選択時でも executeShell には effort プロパティが含まれないこと", async () => {
+    renderApp();
+
+    const provider = createProvider("openai", {
+      "gpt-5.4": {
+        id: "gpt-5.4",
+        name: "GPT-5.4",
+        limit: { context: 128000, output: 4096 },
+        variants: {
+          low: { label: "Low" },
+          medium: { label: "Medium" },
+          high: { label: "High" },
+        },
+      },
+    });
+    await sendExtMessage({
+      type: "providers",
+      providers: [provider],
+      allProviders: createAllProvidersData(
+        ["openai"],
+        [
+          {
+            id: "openai",
+            name: "OpenAI",
+            models: {
+              "gpt-5.4": {
+                id: "gpt-5.4",
+                name: "GPT-5.4",
+                limit: { context: 128000, output: 4096 },
+                variants: {
+                  low: { label: "Low" },
+                  medium: { label: "Medium" },
+                  high: { label: "High" },
+                },
+              },
+            },
+          },
+        ],
+      ),
+      default: { general: "openai/gpt-5.4" },
+      configModel: "openai/gpt-5.4",
+    });
+
+    const session = createSession({ id: "s1" });
+    await sendExtMessage({ type: "activeSession", session });
+    vi.mocked(postMessage).mockClear();
+
+    // Ctrl+T で effort を選択する
+    const textarea = screen.getByPlaceholderText("Ask OpenCode... (type # to attach files)");
+    fireEvent.keyDown(textarea, { key: "t", ctrlKey: true });
+
+    // ! プレフィクスでシェルコマンドを送信
+    const user = userEvent.setup();
+    await user.type(textarea, "!git status{Enter}");
+
+    const calls = vi.mocked(postMessage).mock.calls;
+    const shellCall = calls.find((c) => (c[0] as { type?: string })?.type === "executeShell");
+    expect(shellCall, "executeShell must have been called").toBeDefined();
+    // effort プロパティは payload 自体に存在しない。
+    expect("effort" in (shellCall![0] as object)).toBe(false);
+    // 既存のフィールドは維持される。
+    expect(shellCall![0]).toEqual(
+      expect.objectContaining({
+        type: "executeShell",
+        sessionId: "s1",
+        command: "git status",
+        model: { providerID: "openai", modelID: "gpt-5.4" },
+      }),
+    );
   });
 });
