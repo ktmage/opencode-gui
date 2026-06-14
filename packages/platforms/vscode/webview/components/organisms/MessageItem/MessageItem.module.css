@@ -242,10 +242,16 @@
 }
 
 .content :global(.markdown .katex-display > .katex) {
-  display: inline-block;
-  max-width: 100%;
+  display: block;
+  max-width: none;
   white-space: nowrap;
+  text-align: center;
   vertical-align: baseline;
+}
+
+.content :global(.markdown .katex-display > .katex > .katex-html) {
+  width: max-content;
+  min-width: 100%;
 }
 
 .content :global(.markdown p > .katex) {
