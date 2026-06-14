@@ -34,6 +34,7 @@ export function ModelSelector({ providers, allProvidersData, selectedModel, onSe
   const t = useLocale();
   const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // 表示用プロバイダーリスト: allProvidersData があればそちらを使い、なければ従来の providers を使う
   const allDisplayProviders = useMemo(() => {
@@ -75,6 +76,35 @@ export function ModelSelector({ providers, allProvidersData, selectedModel, onSe
 
   const hasDisconnected = useMemo(() => allDisplayProviders.some((p) => !p.connected), [allDisplayProviders]);
 
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const isSearching = normalizedSearchQuery.length > 0;
+
+  const visibleProviders = useMemo(() => {
+    if (!isSearching) return displayProviders;
+
+    return displayProviders
+      .map((provider) => {
+        const providerMatches =
+          provider.name.toLowerCase().includes(normalizedSearchQuery) ||
+          provider.id.toLowerCase().includes(normalizedSearchQuery);
+
+        const models = providerMatches
+          ? provider.models
+          : provider.models.filter((model) => {
+              const modelName = model.name || "";
+              return (
+                modelName.toLowerCase().includes(normalizedSearchQuery) ||
+                model.id.toLowerCase().includes(normalizedSearchQuery)
+              );
+            });
+
+        return { ...provider, models };
+      })
+      .filter((provider) => provider.models.length > 0);
+  }, [displayProviders, isSearching, normalizedSearchQuery]);
+
+  const hasSearchResults = visibleProviders.length > 0;
+
   const selectedModelName = useMemo(() => {
     if (!selectedModel) return t["model.selectModel"];
     for (const p of allDisplayProviders) {
@@ -107,14 +137,16 @@ export function ModelSelector({ providers, allProvidersData, selectedModel, onSe
       panel={({ close }) => (
         <div className={styles.panel}>
           <div className={styles.panelBody}>
-            {displayProviders.map((provider) => {
+            {visibleProviders.map((provider) => {
               if (provider.models.length === 0) return null;
-              const isCollapsed = collapsedProviders.has(provider.id);
+              const isCollapsed = !isSearching && collapsedProviders.has(provider.id);
               return (
                 <div key={provider.id} className={styles.section}>
                   <div
                     className={`${styles.sectionTitle} ${!provider.connected ? styles.disconnected : ""}`}
-                    onClick={() => toggleProvider(provider.id)}
+                    onClick={() => {
+                      if (!isSearching) toggleProvider(provider.id);
+                    }}
                   >
                     <span className={`${styles.chevron} ${isCollapsed ? "" : styles.expanded}`}>
                       <ChevronRightIcon />
@@ -156,8 +188,17 @@ export function ModelSelector({ providers, allProvidersData, selectedModel, onSe
                 </div>
               );
             })}
+            {!hasSearchResults && <div className={styles.noResults}>{t["model.noSearchResults"]}</div>}
           </div>
-          {hasDisconnected && (
+          <div className={styles.searchBox}>
+            <input
+              className={styles.searchInput}
+              placeholder={t["model.searchPlaceholder"]}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </div>
+          {!isSearching && hasDisconnected && (
             <div className={styles.footer}>
               <LinkButton
                 onClick={() => setShowAll((s) => !s)}

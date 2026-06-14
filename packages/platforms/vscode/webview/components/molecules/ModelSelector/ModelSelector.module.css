@@ -74,6 +74,41 @@
   border-radius: 3px;
 }
 
+.searchBox {
+  padding: 8px;
+  border-top: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1px 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 4px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 11px;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.searchInput::placeholder {
+  color: var(--vscode-input-placeholderForeground, #aaaaaa);
+  font-size: 11px;
+}
+
+.noResults {
+  padding: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  text-align: center;
+}
+
 .section {
   /* wrapper for provider group */
 }

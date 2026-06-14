@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { postMessage } from "../../vscode-api";
@@ -215,5 +215,41 @@ describe("モデル選択", () => {
     await sendExtMessage({ type: "activeSession", session: createSession({ id: "s1" }) });
 
     expect(screen.getByText("Select model")).toBeInTheDocument();
+  });
+
+  it("検索でモデル一覧を絞り込めること", async () => {
+    await setupWithProviders();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText("Claude 4 Opus"));
+    const searchInput = screen.getByPlaceholderText("Search models...");
+    await user.type(searchInput, "sonnet");
+
+    const panel = searchInput.parentElement?.parentElement as HTMLElement;
+    expect(within(panel).getByText("Claude 4 Sonnet")).toBeInTheDocument();
+    expect(within(panel).queryByText("Claude 4 Opus")).not.toBeInTheDocument();
+  });
+
+  it("検索中は未接続プロバイダーのモデルは検索結果に表示されないこと", async () => {
+    await setupWithProviders();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText("Claude 4 Opus"));
+    await user.type(screen.getByPlaceholderText("Search models..."), "gpt");
+
+    expect(screen.queryByText("OpenAI")).not.toBeInTheDocument();
+    expect(screen.queryByText("GPT-5")).not.toBeInTheDocument();
+    expect(screen.getByText("No matching models")).toBeInTheDocument();
+  });
+
+  it("検索結果がない場合は空状態が表示されること", async () => {
+    await setupWithProviders();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText("Claude 4 Opus"));
+    await user.type(screen.getByPlaceholderText("Search models..."), "no-such-model");
+
+    expect(screen.getByText("No matching models")).toBeInTheDocument();
+    expect(screen.queryByText("Claude 4 Sonnet")).not.toBeInTheDocument();
   });
 });

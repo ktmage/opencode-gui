@@ -87,6 +87,8 @@ export const ja: LocaleSchema = {
   "model.connectedOnly": "接続済みのみ",
   "model.showAll": "すべてのプロバイダーを表示",
   "model.hideDisconnected": "未接続のプロバイダーを非表示",
+  "model.searchPlaceholder": "モデルを検索...",
+  "model.noSearchResults": "一致するモデルがありません",
 
   // AgentSelector
   "agent.selectAgent": "エージェントを選択",

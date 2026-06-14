@@ -87,6 +87,8 @@ export const es: LocaleSchema = {
   "model.connectedOnly": "Solo conectados",
   "model.showAll": "Mostrar todos los proveedores",
   "model.hideDisconnected": "Ocultar proveedores desconectados",
+  "model.searchPlaceholder": "Buscar modelos...",
+  "model.noSearchResults": "No hay modelos coincidentes",
 
   // AgentSelector
   "agent.selectAgent": "Seleccionar agente",

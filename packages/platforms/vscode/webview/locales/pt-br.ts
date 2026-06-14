@@ -87,6 +87,8 @@ export const ptBr: LocaleSchema = {
   "model.connectedOnly": "Apenas conectados",
   "model.showAll": "Mostrar todos os provedores",
   "model.hideDisconnected": "Ocultar provedores desconectados",
+  "model.searchPlaceholder": "Pesquisar modelos...",
+  "model.noSearchResults": "Nenhum modelo encontrado",
 
   // AgentSelector
   "agent.selectAgent": "Selecionar agente",

@@ -87,6 +87,8 @@ export const ru: LocaleSchema = {
   "model.connectedOnly": "Только подключённые",
   "model.showAll": "Показать всех провайдеров",
   "model.hideDisconnected": "Скрыть отключённых провайдеров",
+  "model.searchPlaceholder": "Поиск моделей...",
+  "model.noSearchResults": "Нет подходящих моделей",
 
   // AgentSelector
   "agent.selectAgent": "Выбрать агента",
