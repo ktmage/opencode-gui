@@ -50,9 +50,7 @@ describe("ModelSelector", () => {
 
     // explicit effort without a label falls back to the id
     it("label が無い場合は id が表示されること", () => {
-      const { container } = render(
-        <ModelSelector {...defaultProps} selectedModelEffort={{ id: "minimal" }} />,
-      );
+      const { container } = render(<ModelSelector {...defaultProps} selectedModelEffort={{ id: "minimal" }} />);
       expect(container.querySelector(".effort")?.textContent).toBe("minimal");
       expect(container.querySelector(".label")?.textContent).toBe("GPT-4·minimal");
     });
@@ -110,11 +108,7 @@ describe("ModelSelector", () => {
     // effort must not leak into the placeholder even when set
     it("effort テキストや区切り文字が表示されないこと", () => {
       const { container } = render(
-        <ModelSelector
-          {...defaultProps}
-          selectedModel={null}
-          selectedModelEffort={{ id: "low", label: "Low" }}
-        />,
+        <ModelSelector {...defaultProps} selectedModel={null} selectedModelEffort={{ id: "low", label: "Low" }} />,
       );
       expect(container.querySelector(".separator")).toBeNull();
       expect(container.querySelector(".effort")).toBeNull();

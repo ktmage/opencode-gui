@@ -57,7 +57,7 @@ const openaiAllProvider = {
     },
     // Reasoning-only, no variants: MUST NOT cycle, MUST NOT show
     // any effort text. Mirrors the deepseek-reasoner fixture.
-    "reasoner": {
+    reasoner: {
       id: "reasoner",
       name: "Reasoner",
       reasoning: true,
@@ -88,7 +88,7 @@ const openaiConnectedProvider = createProvider("openai", {
       minimal: { label: "Minimal" },
     },
   },
-  "reasoner": {
+  reasoner: {
     id: "reasoner",
     name: "Reasoner",
     reasoning: true,

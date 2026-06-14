@@ -28,9 +28,7 @@ import type { ModelInfo, ModelVariantRef } from "./domain";
  * - Returns an empty array for `undefined` / `null` / missing / non-object
  *   `variants`. Empty result means "effort is unsupported for this model".
  */
-export function getModelVariants(
-  model?: ModelInfo | null,
-): ModelVariantRef[] {
+export function getModelVariants(model?: ModelInfo | null): ModelVariantRef[] {
   if (!model) return [];
   const raw = model.variants;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
@@ -93,9 +91,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function pickDisplayLabel(
-  value: Record<string, unknown>,
-): string | undefined {
+function pickDisplayLabel(value: Record<string, unknown>): string | undefined {
   for (const field of DISPLAY_LABEL_FIELDS) {
     const candidate = value[field];
     if (typeof candidate === "string" && candidate.length > 0) {

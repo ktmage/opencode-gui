@@ -312,7 +312,7 @@ describe("OpenCodeAgent", () => {
       // Default (no explicit effort) must NOT include a `variant` key
       // so the opencode server applies its own default behavior.
       const call = mockClient.session.promptAsync.mock.calls[0][0];
-      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
+      expect(Object.hasOwn(call, "variant")).toBe(false);
     });
 
     it("should send message with model via options", async () => {
@@ -329,7 +329,7 @@ describe("OpenCodeAgent", () => {
       });
       // Model set without explicit effort must NOT include a `variant` key.
       const call = mockClient.session.promptAsync.mock.calls[0][0];
-      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
+      expect(Object.hasOwn(call, "variant")).toBe(false);
     });
 
     it("should forward explicit effort as top-level variant sibling of model", async () => {
@@ -359,7 +359,7 @@ describe("OpenCodeAgent", () => {
       await agent.sendMessage("sess-1", "Hello", { model, effort: { id: "" } });
 
       const call = mockClient.session.promptAsync.mock.calls[0][0];
-      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
+      expect(Object.hasOwn(call, "variant")).toBe(false);
     });
 
     it("should keep explicit effort alongside files/agent/skill parts", async () => {
@@ -369,7 +369,13 @@ describe("OpenCodeAgent", () => {
       const effort = { id: "high" };
       const files = [{ filePath: "a.ts", fileName: "a.ts" }];
 
-      await agent.sendMessage("sess-1", "Review", { model, effort, files, agent: "reviewer", skill: "coding-guidelines" });
+      await agent.sendMessage("sess-1", "Review", {
+        model,
+        effort,
+        files,
+        agent: "reviewer",
+        skill: "coding-guidelines",
+      });
 
       const call = mockClient.session.promptAsync.mock.calls[0][0];
       expect(call.model).toEqual(model);
@@ -482,7 +488,7 @@ describe("OpenCodeAgent", () => {
       });
       // SDK 1.2.17 shell body has no `variant` — must stay absent.
       const call = mockClient.session.shell.mock.calls[0][0];
-      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
+      expect(Object.hasOwn(call, "variant")).toBe(false);
     });
 
     it("should pass undefined model when not provided", async () => {
@@ -498,7 +504,7 @@ describe("OpenCodeAgent", () => {
       });
       // Defensive: no variant key on shell request, even when no model is set.
       const call = mockClient.session.shell.mock.calls[0][0];
-      expect(Object.prototype.hasOwnProperty.call(call, "variant")).toBe(false);
+      expect(Object.hasOwn(call, "variant")).toBe(false);
     });
   });
 

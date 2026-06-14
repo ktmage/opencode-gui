@@ -523,11 +523,8 @@ describe("ChatViewProvider", () => {
       });
 
       // The third argument to sendMessage is the options object; effort must be absent (not undefined-keyed).
-      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
-        string,
-        unknown
-      >;
-      expect(Object.prototype.hasOwnProperty.call(options, "effort")).toBe(false);
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<string, unknown>;
+      expect(Object.hasOwn(options, "effort")).toBe(false);
     });
 
     it("should forward explicit effort to agent.sendMessage options when present", async () => {
@@ -559,10 +556,7 @@ describe("ChatViewProvider", () => {
         }),
       );
       // Sanity: the effort object passed in is the exact same one forwarded.
-      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
-        string,
-        unknown
-      >;
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<string, unknown>;
       expect(options.effort).toEqual(effort);
     });
   });
@@ -802,11 +796,8 @@ describe("ChatViewProvider", () => {
       });
 
       // The third argument to sendMessage is the options object; effort must be absent (not undefined-keyed).
-      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
-        string,
-        unknown
-      >;
-      expect(Object.prototype.hasOwnProperty.call(options, "effort")).toBe(false);
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<string, unknown>;
+      expect(Object.hasOwn(options, "effort")).toBe(false);
     });
 
     it("should forward explicit effort to agent.sendMessage options when present", async () => {
@@ -838,10 +829,7 @@ describe("ChatViewProvider", () => {
           effort,
         }),
       );
-      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<
-        string,
-        unknown
-      >;
+      const options = (mockAgent.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<string, unknown>;
       expect(options.effort).toEqual(effort);
     });
   });

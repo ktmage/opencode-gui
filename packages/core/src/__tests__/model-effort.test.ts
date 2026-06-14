@@ -11,11 +11,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { ModelInfo, ModelVariantRef } from "../domain";
-import {
-  getModelVariants,
-  isModelVariantSupported,
-  validateModelVariant,
-} from "../model-effort";
+import { getModelVariants, isModelVariantSupported, validateModelVariant } from "../model-effort";
 
 // ============================================================
 // Test fixtures
@@ -71,13 +67,7 @@ const deepseekV4Pro: ModelInfo = makeModel({
 describe("getModelVariants", () => {
   it("returns normalized ids in server-supplied order", () => {
     const result = getModelVariants(gpt54);
-    expect(result.map((v) => v.id)).toEqual([
-      "none",
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-    ]);
+    expect(result.map((v) => v.id)).toEqual(["none", "low", "medium", "high", "xhigh"]);
   });
 
   it("returns empty array for a reasoning-only model with no variants", () => {
@@ -202,9 +192,7 @@ describe("isModelVariantSupported", () => {
   });
 
   it("returns false when the model does not advertise the effort id", () => {
-    expect(isModelVariantSupported(deepseekReasoner, { id: "low" })).toBe(
-      false,
-    );
+    expect(isModelVariantSupported(deepseekReasoner, { id: "low" })).toBe(false);
   });
 
   it("returns false when the model has a different variant set", () => {

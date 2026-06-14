@@ -1,4 +1,4 @@
-import type { ModelVariantRef, ProviderInfo as CoreProviderInfo } from "@opencodegui/core";
+import type { ProviderInfo as CoreProviderInfo, ModelVariantRef } from "@opencodegui/core";
 import { useMemo, useState } from "react";
 import { useLocale } from "../../../locales";
 import type { AllProvidersData, ModelInfo, ProviderInfo } from "../../../vscode-api";
@@ -38,13 +38,7 @@ const badgeClass: Record<string, string> = {
   deprecated: styles.deprecated,
 };
 
-export function ModelSelector({
-  providers,
-  allProvidersData,
-  selectedModel,
-  onSelect,
-  selectedModelEffort,
-}: Props) {
+export function ModelSelector({ providers, allProvidersData, selectedModel, onSelect, selectedModelEffort }: Props) {
   const t = useLocale();
   const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);

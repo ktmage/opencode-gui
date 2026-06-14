@@ -382,9 +382,7 @@ export function InputArea({
     const validVariants = getModelVariants(info);
     if (validVariants.length === 0) return false;
 
-    const currentIndex = selectedModelEffort
-      ? validVariants.findIndex((v) => v.id === selectedModelEffort.id)
-      : -1;
+    const currentIndex = selectedModelEffort ? validVariants.findIndex((v) => v.id === selectedModelEffort.id) : -1;
 
     const nextVariant: ModelVariantRef =
       currentIndex < 0
