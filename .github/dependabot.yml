@@ -1,0 +1,31 @@
+# Dependabot configuration (Node.js monorepo)
+# Installed by: security-audit skill
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "security"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        patterns: ["vitest", "vite", "esbuild", "@vscode/*", "@types/*"]
+      runtime-security:
+        dependency-type: "production"
+        patterns: ["dompurify", "marked"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "ci"

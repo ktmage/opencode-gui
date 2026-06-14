@@ -1,0 +1,9 @@
+# Security audit pre-commit hooks (Node.js)
+# Installed by: security-audit skill
+
+repos:
+  # Secret detection — blocks accidental commits of API keys, tokens, credentials
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

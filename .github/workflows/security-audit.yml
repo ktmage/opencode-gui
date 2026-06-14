@@ -1,0 +1,79 @@
+# Security Audit CI Workflow (Node.js monorepo)
+# Installed by: security-audit skill
+#
+# IMPORTANT: All actions are pinned to commit SHAs for supply-chain integrity.
+# Use `gh api repos/<owner>/<repo>/git/refs/tags/<tag>` to look up the SHA for an
+# upgrade, then replace the `@<sha>` portion below.
+
+name: Security Audit
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc  # v2.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast-semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - name: Semgrep SAST
+        run: |
+          semgrep scan \
+            --config p/javascript \
+            --config p/typescript \
+            --config p/react \
+            --config p/secrets \
+            --error \
+            --metrics=off \
+            --sarif --output semgrep-results.sarif
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb  # v3.28.3
+        with:
+          sarif_file: semgrep-results.sarif
+        continue-on-error: true
+
+  dependency-scan:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - name: Install pnpm
+        uses: pnpm/action-setup@0c17529a66aca453f9227af23103ed11469b1e47  # v4.0.0
+        with:
+          version: 10
+      - name: Setup Node
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65  # v4.0.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high

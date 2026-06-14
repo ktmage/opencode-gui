@@ -1,0 +1,21 @@
+# Gitleaks allowlist — suppress false positives
+# Installed by: security-audit skill
+# Source: ~/.config/opencode/skills/security-audit/templates/node/.gitleaks.toml
+
+[allowlist]
+  description = "Allowlist for config templates, test fixtures, and dotenv examples"
+  paths = [
+    '''\.env\.example''',
+    '''\.env\.sample''',
+    '''__tests__/.*''',
+    '''\.gitleaks\.toml''',
+    '''scripts/security/.*\.json''',
+    '''pnpm-lock\.yaml''',
+    '''node_modules/.*''',
+    '''dist/.*''',
+    '''\.vscode-test/.*''',
+  ]
+  regexes = [
+    '''opencodegui-monorepo''',
+    '''opencodegui@''',
+  ]
